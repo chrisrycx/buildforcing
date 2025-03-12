@@ -5,8 +5,8 @@ Objects to get and store data from NLDAS or the PNNL snotel data (on Google Driv
 import requests
 import pandas as pd
 from gdriver.gdriver import get_file, get_credentials
-from datetime import datetime
-from io import StringIO
+from datetime import datetime, date
+from io import StringIO, TextIOWrapper
 
 class PNNLSnotel:
     '''
@@ -33,8 +33,10 @@ class PNNLSnotel:
 
         # For each line in the metadata file, split the line by commas and search for site name in column 3
         site_match = False
-        with open(summary_file, 'r') as f:
+        with TextIOWrapper(summary_file) as f:
             for line in f:
+                # Remove \n from the line
+                line = line.strip()
                 column_values = line.split(',')
                 if column_values[3] == self.site_name:
                     site_match = True
@@ -67,6 +69,15 @@ class PNNLSnotel:
 
         self.data: pd.DataFrame = snotel_data
 
+    def get_timezone(self):
+        '''
+        Get the timezone for the site.
+        '''
+        # Use the timezonefinder package to get the timezone for the site
+        from timezonefinder import TimezoneFinder
+        tf = TimezoneFinder()
+        return tf.timezone_at(lng=self.longitude, lat=self.latitude)
+
 
 class siteNLDAS():
     '''
@@ -83,24 +94,32 @@ class siteNLDAS():
         self.snotel: PNNLSnotel = snotel
         self.data = pd.DataFrame()
 
-    def getdata(self, forcing_name):
+    def getdata(self, forcing_name, start_date: datetime, end_date: datetime):
         '''
         Get data based on the forcing name.
         '''
         if forcing_name not in self.nldas_forcings:
             raise ValueError(f"Invalid forcing name. Allowed values are: {self.nldas_forcings}")
+        
+        # Use snotel date range if none provided
+        if start_date is None:
+            start_date = self.snotel.start_date
+        if end_date is None:
+            end_date = self.snotel.end_date
+
+        print(f"Downloading {forcing_name} data for {self.snotel.site_name} from {start_date} to {end_date}")
                              
         # Download the data
         params = {
             'variable': f'NLDAS2:NLDAS_FORA0125_H_v2.0:{forcing_name}',
-            'startDate': self.snotel.start_date.strftime('%Y-%m-%dT00'),
-            'endDate': self.snotel.end_date.strftime('%Y-%m-%dT23'),
-            'location': f'GEOM:POINT({self.snotel.longitude} {self.snotel.latitude})',
+            'startDate': start_date.strftime('%Y-%m-%dT00'),
+            'endDate': end_date.strftime('%Y-%m-%dT23'),
+            'location': f'GEOM:POINT({self.snotel.longitude:.2f}, {self.snotel.latitude:.2f})',
             'type': 'asc2'
         }
 
         # Make the GET request to the API
-        response = requests.get(self.base_url, params=params)
+        response = requests.get(self.base_url, params=params, timeout=10)
 
         # Check if the request was successful
         if response.status_code != 200:

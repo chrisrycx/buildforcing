@@ -4,7 +4,7 @@ A quick initial test of the PNNLSnotel class.
 from buildforcing.datasets import PNNLSnotel
 
 # Create an instance of the PNNLSnotel class
-snotel = PNNLSnotel('TonyGrove')
+snotel = PNNLSnotel('Temple Fork')
 
 if snotel.exists:
-    snotel.data.head()
+    print(snotel.data.head())
