@@ -7,6 +7,7 @@ import pandas as pd
 from gdriver.gdriver import get_file, get_credentials
 from datetime import datetime, date
 from io import StringIO, TextIOWrapper
+from timezonefinder import TimezoneFinder
 
 class PNNLSnotel:
     '''
@@ -21,6 +22,7 @@ class PNNLSnotel:
 
         # Load the metadata and associated data
         self.exists = self.load_metadata()
+        self.timezone = self.get_timezone()
         if self.exists:
             self.load_data()
 
@@ -74,7 +76,6 @@ class PNNLSnotel:
         Get the timezone for the site.
         '''
         # Use the timezonefinder package to get the timezone for the site
-        from timezonefinder import TimezoneFinder
         tf = TimezoneFinder()
         return tf.timezone_at(lng=self.longitude, lat=self.latitude)
 
