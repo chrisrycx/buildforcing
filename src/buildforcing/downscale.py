@@ -2,24 +2,25 @@
 Functions used to downscale NLDAS data for use with point modeling.
 '''
 import pandas as pd
-from zoneinfo import ZoneInfo
 
 
-def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series, snotel_tz: ZoneInfo) -> pd.Series:
+def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
     '''
     Downscale the NLDAS temperature data to the Snotel site using snotel max and min temperature data.
-    This expects the snotel data to have a datetime index as is the case when the data is loaded.
-    NLDAS data is expected to have a timezone aware datetime index in UTC.
+
+    ** Note ** Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
     Output is in K with UTC timezone as per the target dataframe.
 
     '''
-    # Check if nldas is localized, if not set to UTC
+    # Check if the input data is timezone aware
     if nldas_Tair_K.index.tz is None:
-        nldas_Tair_K.index = nldas_Tair_K.index.tz_localize('UTC')
+        raise ValueError("NLDAS data must be timezone aware (UTC)")
+    if snotel_Tmax_C.index.tz is None:
+        raise ValueError("Snotel Tmax data must be timezone aware")
     
     # Convert to snotel timezone
-    nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_tz)
+    nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_Tmax_C.index.tz)
 
     # Convert snotel temperatures to K
     snotel_Tmax_K = snotel_Tmax_C + 273.15
@@ -58,6 +59,9 @@ def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin
 
     # Finally calculate the downscaled temperature
     nldas_Tair_K_downscaled = nldas_Tair_k_df['Tair'] + nldas_Tair_k_df['snotel_diffs']
+
+    # Change timezone back to UTC
+    nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
 
     return nldas_Tair_K_downscaled
 
