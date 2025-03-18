@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
-from buildforcing.downscale import downscaleTair
+from buildforcing.downscale import downscaleTair, downscalePrecip
 
 class TestDownscaleTair(unittest.TestCase):
     def setUp(self):
@@ -44,6 +44,56 @@ class TestDownscaleTair(unittest.TestCase):
         # Assert each value within a tolerance
         for i in range(len(result)):
             self.assertAlmostEqual(result[i], expected_result[i], places=2)
+
+    def test_missingday(self):
+        '''
+        Test handling of missing day in SNOTEL data.
+        '''
+        print("Need to implement this test")
+
+class TestDownscalePrecip(unittest.TestCase):
+    def setUp(self):
+        # Create a dummy precipitation dataset (4 days with 6-hourly data)
+        self.precip_mm = pd.Series(
+            [1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8],
+            index=pd.date_range("2023-01-01 00:00", periods=16, freq="6h", tz="UTC")
+        )
+        # 4 days of SNOTEL data (daily data), first day will be doubled, second day will be halved, third day will be missing, fourth day will be zero
+        self.snotel_mm = pd.Series(
+            [20,13,None,0],
+            index=pd.date_range("2023-01-01 00:00", periods=4, freq="24h", tz="UTC")
+        )
+    
+    def test_scaling(self):
+        '''
+        Test that the data is scaled correctly by just looking at the first two days.
+        '''
+        rescaled = downscalePrecip(self.precip_mm['2023-01-01':'2023-01-02 18:00'], self.snotel_mm['2023-01-01':'2023-01-02 18:00'])
+
+        # Assert the result is a pandas Series
+        self.assertIsInstance(rescaled, pd.Series)
+
+        # Assert the result has the same index as the input NLDAS data
+        self.assertTrue(rescaled.index.equals(self.precip_mm['2023-01-01':'2023-01-02 18:00'].index))
+
+        # Spot check that the values are scaled correctly
+        self.assertEqual(rescaled.iloc[0], 2)
+        self.assertEqual(rescaled.iloc[5], 3)
+
+    def test_zero(self):
+        '''
+        Verify correct handling of zeros in the SNOTEL data, but NLDAS is showing precip.
+        '''
+        print("Need to implement this test")
+    
+    def test_missingday(self):
+        '''
+        Test handling of missing day in SNOTEL data.
+        '''
+        print("Need to implement this test")
+
+
+#def test_partitionPrecip():
 
 if __name__ == "__main__":
     unittest.main()

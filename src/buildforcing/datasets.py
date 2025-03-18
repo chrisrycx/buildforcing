@@ -42,7 +42,7 @@ class PNNLSnotel:
                 column_values = line.split(',')
                 if column_values[3] == self.site_name:
                     site_match = True
-                    self.elevation: int = int(column_values[4])
+                    self.elevation: float = int(column_values[4])*3.28  # Convert meters to feet
                     self.latitude: float = float(column_values[5])
                     self.longitude: float = float(column_values[6])
                     self.start_date: datetime = datetime.strptime(column_values[7], '%m/%d/%Y')
@@ -69,7 +69,16 @@ class PNNLSnotel:
         # Rename columns
         snotel_data.rename(columns={'Precipitation': 'precip_in', 'Max Temp': 'T_max_F', 'Min Temp': 'T_min_F', 'Avg Temp': 'T_avg_F', 'Snow Water Equivalent': 'swe_in'}, inplace=True)
 
-        self.data: pd.DataFrame = snotel_data
+        # Convert temperatures to C
+        snotel_data['T_max_C'] = (snotel_data['T_max_F'] - 32) * 5/9
+        snotel_data['T_min_C'] = (snotel_data['T_min_F'] - 32) * 5/9
+        snotel_data['T_avg_C'] = (snotel_data['T_avg_F'] - 32) * 5/9
+
+        # Convert precipitation and swe to mm
+        snotel_data['precip_mm'] = snotel_data['precip_in'] * 25.4
+        snotel_data['swe_mm'] = snotel_data['swe_in'] * 25.4
+
+        self.data: pd.DataFrame = snotel_data[['T_max_C', 'T_min_C', 'T_avg_C', 'precip_mm', 'swe_mm']].copy()
 
     def get_timezone(self):
         '''
@@ -120,7 +129,7 @@ class siteNLDAS():
         }
 
         # Make the GET request to the API
-        response = requests.get(self.base_url, params=params, timeout=10)
+        response = requests.get(self.base_url, params=params, timeout=60)
 
         # Check if the request was successful
         if response.status_code != 200:
@@ -135,7 +144,7 @@ class siteNLDAS():
 
         # Load the data into a Pandas DataFrame, skipping the necessary rows
         nldas_data.columns = [forcing_name]
-        self.data.join(nldas_data, how='outer')
+        self.data = self.data.join(nldas_data, how='outer')
 
             
         
