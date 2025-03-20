@@ -26,6 +26,10 @@ def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin
     snotel_Tmax_K = snotel_Tmax_C + 273.15
     snotel_Tmin_K = snotel_Tmin_C + 273.15
 
+    # Linearly interpolate any missing values in the snotel data
+    snotel_Tmax_K = snotel_Tmax_K.interpolate()
+    snotel_Tmin_K = snotel_Tmin_K.interpolate()
+
     # Find the index of the max and min temperatures by day, because I need to know the time of day
     nldas_max_idx = nldas_Tair_K.groupby(nldas_Tair_K.index.date).idxmax()
     nldas_min_idx = nldas_Tair_K.groupby(nldas_Tair_K.index.date).idxmin()
