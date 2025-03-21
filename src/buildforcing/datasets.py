@@ -146,6 +146,74 @@ class siteNLDAS():
         nldas_data.columns = [forcing_name]
         self.data = self.data.join(nldas_data, how='outer')
 
+class siteForcings:
+    '''
+    A class to store the forcings for a given site. Also contains metadata about how the forcings were created.
+    '''
+
+    def __init__(self, site_name, start_date: datetime, end_date: datetime):
+        self.site_name = site_name
+        self.start_date = start_date
+        self.end_date = end_date
+
+        # Initialize data and metadata
+        dfindex = pd.date_range(start_date, end_date, freq='h') # hourly index
+        self.forcings = pd.DataFrame(index=dfindex)
+        self.build_methods = {}
+        self.qc_flags = {}
+
+    def loadNetCDF(self, storage_path: str):
+        '''
+        Load the forcings from a NetCDF file.
+        Will construct file name following some sort of convention...
+        '''
+        # Load the NetCDF file
+        # forcings = xr.open_dataset(file_path)
+
+        # # Extract the data
+        # self.forcings = forcings.to_dataframe()
+
+        # # Extract the metadata
+        # self.build_methods = forcings.attrs['build_methods']
+        # self.qc_flags = forcings.attrs['qc_flags']
+        pass
+
+    def saveNetCDF(self, storage_path: str):
+        '''
+        Save the forcings to a NetCDF file.
+        Will construct file name following some sort of convention...
+        '''
+        # # Convert the DataFrame to an xarray Dataset
+        # forcings = self.forcings.to_xarray()
+
+        # # Add the metadata
+        # forcings.attrs['build_methods'] = self.build_methods
+        # forcings.attrs['qc_flags'] = self.qc_flags
+
+        # # Save the Dataset to a NetCDF file
+        # forcings.to_netcdf(file_path)
+        pass
+
+    def setForcing(self, forcing_name: str, build_method:str, forcing_data: pd.Series):
+        '''
+        Set the forcing data for a given forcing name.
+        '''
+        # Ensure input data has the correct index
+        if not forcing_data.index.equals(self.forcings.index):
+            raise ValueError("Forcing data must have the same index as the site forcings")
+        
+        self.build_methods[forcing_name] = build_method
+        self.forcings[forcing_name] = forcing_data
+
+    def setQCFlag(self, forcing_name, qc_flag):
+        '''
+        Set the QC flag for a given forcing name.
+        '''
+        # Ensure the forcing name is in the build methods
+        if forcing_name not in self.build_methods:
+            raise ValueError(f"Build method for {forcing_name} must be set before setting the QC flag")
+        self.qc_flags[forcing_name] = qc_flag
+
             
         
        
