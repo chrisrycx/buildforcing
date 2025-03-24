@@ -4,10 +4,10 @@ Objects to get and store data from NLDAS or the PNNL snotel data (on Google Driv
 
 import requests
 import pandas as pd
-from gdriver.gdriver import get_file, get_credentials
 from datetime import datetime, date
 from io import StringIO, TextIOWrapper
 from timezonefinder import TimezoneFinder
+import os
 
 class PNNLSnotel:
     '''
@@ -17,32 +17,34 @@ class PNNLSnotel:
     def __init__(self, site_name):
         self.site_name = site_name
 
-        # Load gdriver credentials
-        self.credentials = get_credentials()
+        # Load PNNL data path from environment variable
+        self.PNNL_DATA_PATH = os.getenv('PNNL_DATA_PATH')
 
         # Load the metadata and associated data
         self.exists = self.load_metadata()
-        self.timezone = self.get_timezone()
+        
         if self.exists:
             self.load_data()
+            self.timezone = self.get_timezone()
 
     def load_metadata(self):
         '''
         Load the metadata for the PNNL Snotel data.
         '''
-        # Download the metadata file from Google Drive
-        summary_file = get_file('bcqc_data_v2/SNOTEL_summary.csv', creds=self.credentials)
+
+        # Load the metadata file
+        summary_file = os.path.join(self.PNNL_DATA_PATH, 'SNOTEL_summary.csv')
 
         # For each line in the metadata file, split the line by commas and search for site name in column 3
         site_match = False
-        with TextIOWrapper(summary_file) as f:
+        with open(summary_file) as f:
             for line in f:
                 # Remove \n from the line
                 line = line.strip()
                 column_values = line.split(',')
                 if column_values[3] == self.site_name:
                     site_match = True
-                    self.elevation: float = int(column_values[4])*3.28  # Convert meters to feet
+                    self.elevation: float = int(column_values[4])/3.28  # Convert meters to feet
                     self.latitude: float = float(column_values[5])
                     self.longitude: float = float(column_values[6])
                     self.start_date: datetime = datetime.strptime(column_values[7], '%m/%d/%Y')
@@ -55,8 +57,8 @@ class PNNLSnotel:
         # Build the file name for the site. The file name uses the site latitude and longitude to 5 decimal places: "bcqc_latitude_longitude.txt"
         file_name = f'bcqc_{self.latitude:.5f}_{self.longitude:.5f}.txt'
 
-        # Download the txt file from Google Drive
-        rawfile = get_file(file_name, creds=self.credentials)
+        # Build the full path to the file
+        rawfile = os.path.join(self.PNNL_DATA_PATH,'bcqc_data',file_name)
 
         # Read the txt file into a pandas dataframe. No header, separator is spaces
         snotel_data = pd.read_csv(rawfile, delimiter=r'\s+', header=None, names=['Year', 'Month', 'Day', 'Precipitation', 'Max Temp', 'Min Temp', 'Avg Temp', 'Snow Water Equivalent'])
