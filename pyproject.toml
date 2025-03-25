@@ -12,6 +12,7 @@ authors = [
 dependencies = [
     "requests",
     "pandas",
+    "xarray",
     "timezonefinder",
 ]
 
