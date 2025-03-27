@@ -8,6 +8,7 @@ from datetime import datetime, date
 from io import StringIO, TextIOWrapper
 from timezonefinder import TimezoneFinder
 import os
+import xarray as xr
 
 class PNNLSnotel:
     '''
@@ -153,14 +154,23 @@ class siteForcings:
     A class to store the forcings for a given site. Also contains metadata about how the forcings were created.
     '''
 
-    def __init__(self, site_name, start_date: datetime, end_date: datetime):
+    def __init__(self, 
+                 site_name, 
+                 start_date: datetime, 
+                 end_date: datetime, 
+                 latitude: float, 
+                 longitude: float
+                 ):
         self.site_name = site_name
         self.start_date = start_date
         self.end_date = end_date
+        self.latitude = latitude
+        self.longitude = longitude
 
         # Initialize data and metadata
         dfindex = pd.date_range(start_date, end_date, freq='h') # hourly index
         self.forcings = pd.DataFrame(index=dfindex)
+        self.forcings.index.name = 'time'
         self.build_methods = {}
         self.qc_flags = {}
 
@@ -169,32 +179,28 @@ class siteForcings:
         Load the forcings from a NetCDF file.
         Will construct file name following some sort of convention...
         '''
-        # Load the NetCDF file
-        # forcings = xr.open_dataset(file_path)
-
-        # # Extract the data
-        # self.forcings = forcings.to_dataframe()
-
-        # # Extract the metadata
-        # self.build_methods = forcings.attrs['build_methods']
-        # self.qc_flags = forcings.attrs['qc_flags']
         pass
 
-    def saveNetCDF(self, storage_path: str):
+    def exportDataset(self) -> xr.Dataset:
         '''
-        Save the forcings to a NetCDF file.
-        Will construct file name following some sort of convention...
+        Export the data to an xarray Dataset
         '''
-        # # Convert the DataFrame to an xarray Dataset
-        # forcings = self.forcings.to_xarray()
+        # Create an xarray Dataset
+        output_ds = xr.Dataset.from_dataframe(self.forcings)
 
-        # # Add the metadata
-        # forcings.attrs['build_methods'] = self.build_methods
-        # forcings.attrs['qc_flags'] = self.qc_flags
+        # Add latitude and longitude as coordinates (should be arrays to match target data)
+        output_ds.coords['latitude'] = [self.latitude]
+        output_ds.coords['longitude'] = [self.longitude]
 
-        # # Save the Dataset to a NetCDF file
-        # forcings.to_netcdf(file_path)
-        pass
+        # Expand the dimensions of the variables to include latitude and longitude
+        output_ds = output_ds[].expand_dims('latitude')
+        output_ds = output_ds.expand_dims('longitude')
+
+        # Add metadata to each variable
+        for forcing_name in self.forcings.columns:
+            output_ds[forcing_name].attrs['build_method'] = self.build_methods[forcing_name]
+            output_ds[forcing_name].attrs['qc_flags'] = self.qc_flags[forcing_name]
+
 
     def setForcing(self, forcing_name: str, build_method:str, forcing_data: pd.Series):
         '''
