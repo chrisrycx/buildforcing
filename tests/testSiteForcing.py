@@ -67,8 +67,8 @@ class TestSiteForcings(unittest.TestCase):
         forcing2 = pd.Series([1, 2, 3, 4, 5], index=pd.date_range("2023-01-01", periods=5, freq="h"))
 
         # Add the forcing to the SiteForcing object
-        site.setForcing("var1", "test", forcing1)
-        site.setForcing("var2", "test2", forcing2)
+        site.setForcing("var1", "test", forcing1, reference_height=10.0)
+        site.setForcing("var2", "test2", forcing2, reference_height=10.0)
         site.setQCFlag("var1", "error1")
         #site.setQCFlag("var2", "error") Try with no errors on var2
 

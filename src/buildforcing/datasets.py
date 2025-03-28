@@ -159,13 +159,15 @@ class siteForcings:
                  start_date: datetime, 
                  end_date: datetime, 
                  latitude: float, 
-                 longitude: float
-                 ):
+                 longitude: float,
+                 reference_height: float = 10.0
+                ):
         self.site_name = site_name
         self.start_date = start_date
         self.end_date = end_date
         self.latitude = latitude
         self.longitude = longitude
+        self.reference_height = reference_height
 
         # Initialize data and metadata
         dfindex = pd.date_range(start_date, end_date, freq='h') # hourly index
@@ -188,24 +190,30 @@ class siteForcings:
         # Create an xarray Dataset
         output_ds = xr.Dataset.from_dataframe(self.forcings)
 
-        # Add latitude and longitude as coordinates (should be arrays to match target data)
-        output_ds.coords['latitude'] = [self.latitude]
-        output_ds.coords['longitude'] = [self.longitude]
+        # Initial dataset only has time as a coordinate, add latitude and longitude as coordinates
+        output_ds = output_ds.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]},axis=[1,2])
 
-        # Expand the dimensions of the variables to include latitude and longitude
-        output_ds = output_ds[].expand_dims('latitude')
-        output_ds = output_ds.expand_dims('longitude')
+        # Add reference height variable 
+        output_ds['reference_height'] = xr.DataArray(self.reference_height, dims=['latitude', 'longitude'], coords={'latitude': [self.latitude], 'longitude': [self.longitude]})
 
         # Add metadata to each variable
         for forcing_name in self.forcings.columns:
             output_ds[forcing_name].attrs['build_method'] = self.build_methods[forcing_name]
-            output_ds[forcing_name].attrs['qc_flags'] = self.qc_flags[forcing_name]
+
+            if self.qc_flags.get(forcing_name) is not None:
+                output_ds[forcing_name].attrs['qc_flags'] = self.qc_flags[forcing_name]
+
+        return output_ds
 
 
-    def setForcing(self, forcing_name: str, build_method:str, forcing_data: pd.Series):
+    def setForcing(self, forcing_name: str, build_method:str, forcing_data: pd.Series, reference_height: float):
         '''
         Set the forcing data for a given forcing name.
         '''
+        # Ensure consistency in the reference height
+        if reference_height != self.reference_height:
+            raise ValueError(f"Reference height {reference_height} does not match the site reference height {self.reference_height}")
+
         # Ensure input data has the correct index
         if not forcing_data.index.equals(self.forcings.index):
             raise ValueError("Forcing data must have the same index as the site forcings")
