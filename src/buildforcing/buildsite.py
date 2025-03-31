@@ -3,6 +3,7 @@ The main entry point for the buildforcing package. This package is used to build
 '''
 from datetime import datetime
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
+from buildforcing.downscale import downscaleTair
 import os
 import xarray as xr
 
@@ -11,7 +12,6 @@ STORAGE_PATH = os.getenv('STORAGE_PATH')
 
 def BuildSite(
         site_name: str,
-        forcings: list[str],
         start_date: datetime = None,
         end_date: datetime = None
         ) -> xr.Dataset:
@@ -34,7 +34,9 @@ def BuildSite(
     xarray dataset which matches LM4.1 netCDF format
     '''
     # Load snotel data, this will fail if site doesn't exist
-    snotel = PNNLSnotel()
+    snotel = PNNLSnotel(site_name=site_name, storage_path=STORAGE_PATH)
+    if not snotel.exists:
+        raise ValueError(f'Site {site_name} does not exist in PNNL Snotel dataset.')
 
     # If start and end date not specified, use snotel start and end date
     if start_date is None:
@@ -43,18 +45,30 @@ def BuildSite(
         end_date = snotel.end_date
 
     # Load NLDAS data, locally if possible
-    nldas = siteNLDAS(site_name, latitude, longitude, forcings, start_date, end_date)
+    nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date, end_date)
+
+    # Initial testing... reduce numbe of forcings to load
+    nldas.nldas_forcings = ['Tair', 'Qair']
+
     try:
         nldas.loadNetCDF(STORAGE_PATH)
     except FileNotFoundError:
-        nldas.downloadForcings()
+        nldas.getdata()
         nldas.saveNetCDF
 
     # Initialize the dataset
-    site_forcing = Dataset(site_name, start_date, end_date)
+    model_forcings = siteForcings(site_name, start_date, end_date, snotel.latitude, snotel.longitude, 10)
 
     # Downscale the NLDAS data
-    site.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.Tair, snotel.Tmax, snotel.Tmin))
-    site.setForcing('P', 'downscaleP', downscaleP(nldas.P, snotel.P))
+    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.Tair, snotel.Tmax, snotel.Tmin))
+    model_forcings.setForcing('Qair', 'Raw Qair', nldas.Qair)
 
-    return site_forcing.exportDataset()
+    return model_forcings.exportDataset()
+
+if __name__ == '__main__':
+    # testing
+    site_name = 'Tony Grove RS'
+    start_date = datetime(2015, 1, 1)
+    end_date = datetime(2015, 1, 3)
+    ds = BuildSite(site_name, start_date, end_date)
+    print(ds)  # Print the dataset to verify the output

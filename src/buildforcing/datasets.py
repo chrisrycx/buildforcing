@@ -15,11 +15,11 @@ class PNNLSnotel:
     Class to store and manipulate the PNNL Snotel data.
     '''
     
-    def __init__(self, site_name):
+    def __init__(self, site_name: str, storage_path: str):
         self.site_name = site_name
 
         # Load PNNL data path from environment variable
-        self.PNNL_DATA_PATH = os.getenv('PNNL_DATA_PATH')
+        self.PNNL_DATA_PATH = os.path.join(storage_path, 'snotel')
 
         # Load the metadata and associated data
         self.exists = self.load_metadata()
@@ -91,7 +91,6 @@ class PNNLSnotel:
         tf = TimezoneFinder()
         return tf.timezone_at(lng=self.longitude, lat=self.latitude)
 
-
 class siteNLDAS():
     '''
     Class to store and manipulate the NLDAS data for a given site.
@@ -103,31 +102,28 @@ class siteNLDAS():
     # Data URL
     base_url = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
 
-    def __init__(self, snotel: PNNLSnotel):
-        self.snotel: PNNLSnotel = snotel
+    def __init__(self, latitude: float, longitude: float, start_date: datetime, end_date: datetime):
+        self.latitude = latitude
+        self.longitude = longitude
+        self.start_date = start_date
+        self.end_date = end_date
         self.data = pd.DataFrame()
 
-    def getdata(self, forcing_name, start_date: datetime, end_date: datetime):
+    def getforcing(self, forcing_name):
         '''
         Get data based on the forcing name.
         '''
         if forcing_name not in self.nldas_forcings:
             raise ValueError(f"Invalid forcing name. Allowed values are: {self.nldas_forcings}")
-        
-        # Use snotel date range if none provided
-        if start_date is None:
-            start_date = self.snotel.start_date
-        if end_date is None:
-            end_date = self.snotel.end_date
 
-        print(f"Downloading {forcing_name} data for {self.snotel.site_name} from {start_date} to {end_date}")
+        print(f"Downloading {forcing_name} data from {self.start_date} to {self.end_date}")
                              
         # Download the data
         params = {
             'variable': f'NLDAS2:NLDAS_FORA0125_H_v2.0:{forcing_name}',
-            'startDate': start_date.strftime('%Y-%m-%dT00'),
-            'endDate': end_date.strftime('%Y-%m-%dT23'),
-            'location': f'GEOM:POINT({self.snotel.longitude:.2f}, {self.snotel.latitude:.2f})',
+            'startDate': self.start_date.strftime('%Y-%m-%dT00'),
+            'endDate': self.end_date.strftime('%Y-%m-%dT23'),
+            'location': f'GEOM:POINT({self.longitude:.2f}, {self.latitude:.2f})',
             'type': 'asc2'
         }
 
@@ -148,6 +144,41 @@ class siteNLDAS():
         # Load the data into a Pandas DataFrame, skipping the necessary rows
         nldas_data.columns = [forcing_name]
         self.data = self.data.join(nldas_data, how='outer')
+
+    def getdata(self):
+        '''
+        Get the data for all forcings.
+        '''
+        for forcing_name in self.nldas_forcings:
+            self.getforcing(forcing_name)
+
+    def loadNetCDF(self, storage_path: str):
+        '''
+        Load the NLDAS data from a NetCDF file: <storage_path>/nldas/<file_name>
+        File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
+        With dates: YYYYMMDD
+        Latitude and longitude to 2 decimal places.
+        '''
+        file_name = f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
+        file_path = os.path.join(storage_path, file_name)
+
+        # Open the dataset, this will fail if the file doesn't exist
+        ds = xr.open_dataset(file_path)
+
+        # Convert the xarray dataset to a pandas dataframe
+        self.data = ds.to_dataframe()
+
+    def saveNetCDF(self, storage_path: str):
+        '''
+        Save the NLDAS data to a NetCDF file: <storage_path>/nldas/<file_name>
+        File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
+        With dates: YYYYMMDD
+        Latitude and longitude to 2 decimal places.
+        '''
+        file_name = f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
+        file_path = os.path.join(storage_path, file_name)
+        ds = xr.Dataset.from_dataframe(self.data)
+        ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
 
 class siteForcings:
     '''
