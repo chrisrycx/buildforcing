@@ -33,8 +33,12 @@ def BuildSite(
     -------
     xarray dataset which matches LM4.1 netCDF format
     '''
+    # Convert STORAGE_PATH to specified folder
+    snotel_storage_path = os.path.join(STORAGE_PATH, 'snotel')
+    nldas_storage_path = os.path.join(STORAGE_PATH, 'nldas')
+
     # Load snotel data, this will fail if site doesn't exist
-    snotel = PNNLSnotel(site_name=site_name, storage_path=STORAGE_PATH)
+    snotel = PNNLSnotel(site_name=site_name, storage_path=snotel_storage_path)
     if not snotel.exists:
         raise ValueError(f'Site {site_name} does not exist in PNNL Snotel dataset.')
 
@@ -51,17 +55,17 @@ def BuildSite(
     nldas.nldas_forcings = ['Tair', 'Qair']
 
     try:
-        nldas.loadNetCDF(STORAGE_PATH)
+        nldas.loadNetCDF(nldas_storage_path)
     except FileNotFoundError:
         nldas.getdata()
-        nldas.saveNetCDF
+        nldas.saveNetCDF(nldas_storage_path)
 
     # Initialize the dataset
     model_forcings = siteForcings(site_name, start_date, end_date, snotel.latitude, snotel.longitude, 10)
 
     # Downscale the NLDAS data
-    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.Tair, snotel.Tmax, snotel.Tmin))
-    model_forcings.setForcing('Qair', 'Raw Qair', nldas.Qair)
+    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    model_forcings.setForcing('Qair', 'Raw Qair', nldas.data.Qair, 10)
 
     return model_forcings.exportDataset()
 

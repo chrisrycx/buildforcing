@@ -13,6 +13,7 @@ dependencies = [
     "requests",
     "pandas",
     "xarray",
+    "netCDF4",
     "timezonefinder",
 ]
 

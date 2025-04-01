@@ -19,14 +19,15 @@ class PNNLSnotel:
         self.site_name = site_name
 
         # Load PNNL data path from environment variable
-        self.PNNL_DATA_PATH = os.path.join(storage_path, 'snotel')
+        self.PNNL_DATA_PATH = os.path.join(storage_path, 'bcqc_data_v2')
 
         # Load the metadata and associated data
         self.exists = self.load_metadata()
         
         if self.exists:
-            self.load_data()
             self.timezone = self.get_timezone()
+            self.load_data()
+            
 
     def load_metadata(self):
         '''
@@ -82,6 +83,9 @@ class PNNLSnotel:
         snotel_data['swe_mm'] = snotel_data['swe_in'] * 25.4
 
         self.data: pd.DataFrame = snotel_data[['T_max_C', 'T_min_C', 'T_avg_C', 'precip_mm', 'swe_mm']].copy()
+
+        # Localize the index to the timezone of the site
+        self.data.index = self.data.index.tz_localize(self.timezone)
 
     def get_timezone(self):
         '''
@@ -152,9 +156,12 @@ class siteNLDAS():
         for forcing_name in self.nldas_forcings:
             self.getforcing(forcing_name)
 
+        # Localize the index to UTC
+        self.data.index = self.data.index.tz_localize('UTC')
+
     def loadNetCDF(self, storage_path: str):
         '''
-        Load the NLDAS data from a NetCDF file: <storage_path>/nldas/<file_name>
+        Load the NLDAS data from a NetCDF file: <storage_path>/<file_name>
         File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
         Latitude and longitude to 2 decimal places.
@@ -167,17 +174,22 @@ class siteNLDAS():
 
         # Convert the xarray dataset to a pandas dataframe
         self.data = ds.to_dataframe()
+        self.data.index = self.data.index.tz_localize('UTC')
 
     def saveNetCDF(self, storage_path: str):
         '''
-        Save the NLDAS data to a NetCDF file: <storage_path>/nldas/<file_name>
+        Save the NLDAS data to a NetCDF file: <storage_path>/<file_name>
         File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
         Latitude and longitude to 2 decimal places.
         '''
         file_name = f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
-        file_path = os.path.join(storage_path, file_name)
-        ds = xr.Dataset.from_dataframe(self.data)
+        file_path = os.path.join(storage_path,file_name)
+
+        # Remove problematic timezone information from the index
+        data_notz = self.data.copy()
+        data_notz.index = data_notz.index.tz_localize(None)
+        ds = xr.Dataset.from_dataframe(data_notz)
         ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
 
 class siteForcings:
@@ -201,9 +213,10 @@ class siteForcings:
         self.reference_height = reference_height
 
         # Initialize data and metadata
-        dfindex = pd.date_range(start_date, end_date, freq='h') # hourly index
+        dfindex = pd.date_range(start_date, end_date, freq='h',tz='UTC') # hourly index
         self.forcings = pd.DataFrame(index=dfindex)
         self.forcings.index.name = 'time'
+
         self.build_methods = {}
         self.qc_flags = {}
 
