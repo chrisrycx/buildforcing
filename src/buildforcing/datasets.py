@@ -231,8 +231,10 @@ class siteForcings:
         '''
         Export the data to an xarray Dataset
         '''
-        # Create an xarray Dataset
-        output_ds = xr.Dataset.from_dataframe(self.forcings)
+        # Create an xarray Dataset from the pandas dataframe, removing the timezone information
+        forcings_notz = self.forcings.copy()
+        forcings_notz.index = forcings_notz.index.tz_localize(None)
+        output_ds = xr.Dataset.from_dataframe(forcings_notz)
 
         # Initial dataset only has time as a coordinate, add latitude and longitude as coordinates
         output_ds = output_ds.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]},axis=[1,2])

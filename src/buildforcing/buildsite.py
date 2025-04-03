@@ -7,9 +7,6 @@ from buildforcing.downscale import downscaleTair
 import os
 import xarray as xr
 
-# Load environmental variables
-STORAGE_PATH = os.getenv('STORAGE_PATH')
-
 def BuildSite(
         site_name: str,
         start_date: datetime = None,
@@ -34,8 +31,8 @@ def BuildSite(
     xarray dataset which matches LM4.1 netCDF format
     '''
     # Convert STORAGE_PATH to specified folder
-    snotel_storage_path = os.path.join(STORAGE_PATH, 'snotel')
-    nldas_storage_path = os.path.join(STORAGE_PATH, 'nldas')
+    snotel_storage_path = os.getenv('SNOTEL_PATH')
+    nldas_storage_path = os.getenv('NLDAS_PATH')
 
     # Load snotel data, this will fail if site doesn't exist
     snotel = PNNLSnotel(site_name=site_name, storage_path=snotel_storage_path)
@@ -73,6 +70,6 @@ if __name__ == '__main__':
     # testing
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
-    end_date = datetime(2015, 1, 3)
+    end_date = datetime(2015, 1, 3, 23)
     ds = BuildSite(site_name, start_date, end_date)
     print(ds)  # Print the dataset to verify the output

@@ -9,16 +9,16 @@ import os
 
 class TestPNNLSnotel(unittest.TestCase):
     def setUp(self):
-        os.environ['PNNL_DATA_PATH'] = 'C:/Users/clmbn/NMT_PhD/bcqc_data_v2/'
+        pass
 
     def testNonExistantSite(self):
         # Test a site that doesn't exist
-        site = PNNLSnotel('nonexistant')
+        site = PNNLSnotel('nonexistant', storage_path=os.getenv('SNOTEL_PATH'))
         self.assertFalse(site.exists)
 
     def testTonyGrove(self):
         # Test a site that does exist
-        site = PNNLSnotel('Tony Grove RS')
+        site = PNNLSnotel('Tony Grove RS', storage_path=os.getenv('SNOTEL_PATH'))
         self.assertTrue(site.exists)
         self.assertAlmostEqual(site.elevation, 1930.5, places=1)
         self.assertAlmostEqual(site.latitude, 41.89, places=2)
