@@ -99,8 +99,8 @@ class siteNLDAS():
     '''
     Class to store and manipulate the NLDAS data for a given site.
     '''
-    nldas_forcings = ['LWdown','Qair','Rainf','SWdown','Tair','Wind_E','Wind_N']
-    forcing_units = ['W/m^2','kg/kg','kg/m2','W/m^2','K','m/s','m/s']
+    nldas_forcings = ['LWdown', 'PSurf','Qair','Rainf','SWdown','Tair','Wind_E','Wind_N']
+    forcing_units = ['W/m^2','Pa','kg/kg','kg/m2','W/m^2','K','m/s','m/s']
     forcing_heights_m = [None,2,None,None,2,10,10]
 
     # Data URL

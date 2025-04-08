@@ -46,10 +46,8 @@ def BuildSite(
         end_date = snotel.end_date
 
     # Load NLDAS data, locally if possible
+    # Forcings 'LWdown','Psurf','Qair','Rainf','SWdown','Tair','Wind_E','Wind_N'
     nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date, end_date)
-
-    # Initial testing... reduce numbe of forcings to load
-    nldas.nldas_forcings = ['Tair', 'Qair']
 
     try:
         nldas.loadNetCDF(nldas_storage_path)
@@ -60,9 +58,16 @@ def BuildSite(
     # Initialize the dataset
     model_forcings = siteForcings(site_name, start_date, end_date, snotel.latitude, snotel.longitude, 10)
 
-    # Downscale the NLDAS data
-    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    # Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
+    print('Warning: forcing conversion not yet implemented correctly.')
+    model_forcings.setForcing('LWdown', 'Raw LW down', nldas.data.LWdown, 10)
+    model_forcings.setForcing('Psurf', 'Raw P surf', nldas.data.PSurf, 10)
     model_forcings.setForcing('Qair', 'Raw Qair', nldas.data.Qair, 10)
+    model_forcings.setForcing('Rainf', 'Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
+    model_forcings.setForcing('Snowf', 'Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
+    model_forcings.setForcing('SWdown', 'Raw SW down', nldas.data.SWdown, 10)
+    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    model_forcings.setForcing('Wind', 'Raw Wind', nldas.data.Wind_E, 10)
 
     return model_forcings.exportDataset()
 
