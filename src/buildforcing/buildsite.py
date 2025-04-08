@@ -34,6 +34,12 @@ def BuildSite(
     snotel_storage_path = os.getenv('SNOTEL_PATH')
     nldas_storage_path = os.getenv('NLDAS_PATH')
 
+    # Exit if no environment variable is set
+    if snotel_storage_path is None:
+        raise ValueError('SNOTEL_PATH environment variable not set.')
+    if nldas_storage_path is None:
+        raise ValueError('NLDAS_PATH environment variable not set.')
+
     # Load snotel data, this will fail if site doesn't exist
     snotel = PNNLSnotel(site_name=site_name, storage_path=snotel_storage_path)
     if not snotel.exists:

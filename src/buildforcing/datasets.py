@@ -211,6 +211,7 @@ class siteForcings:
         self.latitude = latitude
         self.longitude = longitude
         self.reference_height = reference_height
+        self.canopy_height = 0.0
 
         # Initialize data and metadata
         dfindex = pd.date_range(start_date, end_date, freq='h',tz='UTC') # hourly index
@@ -239,8 +240,9 @@ class siteForcings:
         # Initial dataset only has time as a coordinate, add latitude and longitude as coordinates
         output_ds = output_ds.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]},axis=[1,2])
 
-        # Add reference height variable 
+        # Add reference height and canopy height variables 
         output_ds['reference_height'] = xr.DataArray(self.reference_height, dims=['latitude', 'longitude'], coords={'latitude': [self.latitude], 'longitude': [self.longitude]})
+        output_ds['canopy_height'] = xr.DataArray(self.canopy_height, dims=['latitude', 'longitude'], coords={'latitude': [self.latitude], 'longitude': [self.longitude]})
 
         # Add metadata to each variable
         for forcing_name in self.forcings.columns:
