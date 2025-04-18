@@ -214,7 +214,7 @@ class siteForcings:
     allowed_forcings_metadata = {
         'LWdown': ForcingMetadata(ALMA_name='LWdown', CMIP_name='rlds', long_name='Surface downward longwave radiation', units='W/m2'),
         'SWdown': ForcingMetadata(ALMA_name='SWdown', CMIP_name='rsds', long_name='Surface downward shortwave radiation', units='W/m2'),
-        'PSurf': ForcingMetadata(ALMA_name='PSurf', CMIP_name='ps', long_name='Surface Pressure', units='Pa'),
+        'Psurf': ForcingMetadata(ALMA_name='Psurf', CMIP_name='ps', long_name='Surface Pressure', units='Pa'), #Note diff from NLDAS
         'Qair': ForcingMetadata(ALMA_name='Qair', CMIP_name='hus', long_name='Near-surface specific humidity', units='kg/kg'),
         'Rainf': ForcingMetadata(ALMA_name='Rainf', CMIP_name='prra', long_name='Rainfall rate', units='kg/m2/s'),
         'Snowf': ForcingMetadata(ALMA_name='Snowf', CMIP_name='prsn', long_name='Snowfall rate', units='kg/m2/s'),
