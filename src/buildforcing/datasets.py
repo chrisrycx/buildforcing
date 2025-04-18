@@ -192,10 +192,35 @@ class siteNLDAS():
         ds = xr.Dataset.from_dataframe(data_notz)
         ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
 
+class ForcingMetadata:
+    '''
+    Class to store metadata for a forcing variable.
+    '''
+    def __init__(self, 
+                 ALMA_name: str,
+                CMIP_name: str,
+                long_name: str,
+                units: str, 
+        ):
+        self.ALMA_name = ALMA_name
+        self.CMIP_name = CMIP_name
+        self.long_name = long_name
+        self.units = units
+
 class siteForcings:
     '''
     A class to store the forcings for a given site. Also contains metadata about how the forcings were created.
     '''
+    allowed_forcings_metadata = {
+        'LWdown': ForcingMetadata(ALMA_name='LWdown', CMIP_name='rlds', long_name='Surface downward longwave radiation', units='W/m2'),
+        'SWdown': ForcingMetadata(ALMA_name='SWdown', CMIP_name='rsds', long_name='Surface downward shortwave radiation', units='W/m2'),
+        'PSurf': ForcingMetadata(ALMA_name='PSurf', CMIP_name='ps', long_name='Surface Pressure', units='Pa'),
+        'Qair': ForcingMetadata(ALMA_name='Qair', CMIP_name='hus', long_name='Near-surface specific humidity', units='kg/kg'),
+        'Rainf': ForcingMetadata(ALMA_name='Rainf', CMIP_name='prra', long_name='Rainfall rate', units='kg/m2/s'),
+        'Snowf': ForcingMetadata(ALMA_name='Snowf', CMIP_name='prsn', long_name='Snowfall rate', units='kg/m2/s'),
+        'Tair': ForcingMetadata(ALMA_name='Tair', CMIP_name='ta', long_name='Near-surface air Temperature', units='K'),
+        'Wind': ForcingMetadata(ALMA_name='Wind', CMIP_name='ws', long_name='Near-surface wind speed', units='m/s')
+    }
 
     def __init__(self, 
                  site_name, 
@@ -253,11 +278,22 @@ class siteForcings:
 
         return output_ds
 
-
-    def setForcing(self, forcing_name: str, build_method:str, forcing_data: pd.Series, reference_height: float):
+    def setForcing(self, 
+                   forcing_name: str,
+                   forcing_units: str, 
+                   build_method:str, 
+                   forcing_data: pd.Series, 
+                   reference_height: float
+                   ):
         '''
         Set the forcing data for a given forcing name.
         '''
+        # Ensure data is in allowed forcings has the correct units
+        if forcing_name not in self.allowed_forcings_metadata:
+            raise ValueError(f"Invalid forcing name. Allowed values are: {self.allowed_forcings_metadata.keys()}")
+        if forcing_units != self.allowed_forcings_metadata[forcing_name].units:
+            raise ValueError(f"Invalid units for {forcing_name}. Expected {self.allowed_forcings_metadata[forcing_name].units}, got {forcing_units}")
+
         # Ensure consistency in the reference height
         if reference_height != self.reference_height:
             raise ValueError(f"Reference height {reference_height} does not match the site reference height {self.reference_height}")
@@ -269,6 +305,13 @@ class siteForcings:
         self.build_methods[forcing_name] = build_method
         self.forcings[forcing_name] = forcing_data
 
+        # Set the variable attributes for the forcing variable
+        self.forcings[forcing_name].attrs['AMLA_name'] = self.allowed_forcings_metadata[forcing_name].ALMA_name
+        self.forcings[forcing_name].attrs['CMIP_name'] = self.allowed_forcings_metadata[forcing_name].CMIP_name
+        self.forcings[forcing_name].attrs['long_name'] = self.allowed_forcings_metadata[forcing_name].long_name
+        self.forcings[forcing_name].attrs['units'] = self.allowed_forcings_metadata[forcing_name].units
+
+
     def setQCFlag(self, forcing_name, qc_flag):
         '''
         Set the QC flag for a given forcing name.
@@ -277,6 +320,17 @@ class siteForcings:
         if forcing_name not in self.build_methods:
             raise ValueError(f"Build method for {forcing_name} must be set before setting the QC flag")
         self.qc_flags[forcing_name] = qc_flag
+
+    def saveNetCDF(self, storage_path: str):
+        '''
+        Save the forcings to a NetCDF file.
+        This requires some special encodings to match the target format.
+        '''
+        ds = self.exportDataset()
+        time_encoding = {'calendar': 'gregorian','units': 'hours since 1900-01-01 06:59:56'}
+
+        # Save
+        ds.to_netcdf(storage_path, encoding={'time': time_encoding}, format='NETCDF4', engine='netcdf4',unlimited_dims=['time'])
 
             
         

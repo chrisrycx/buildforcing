@@ -20,15 +20,16 @@ class TestSiteForcings(unittest.TestCase):
         ref_height = [[10.0]]
 
         # Create dummy data
-        var1_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
-        var2_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
+        Tair_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
+        Qair_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
 
         # Assign data to the xarray Dataset
         self.target = xr.Dataset(
             {
-            "var1": (["time","latitude","longitude"], var1_data),
-            "var2": (["time","latitude","longitude"], var2_data),
+            "Tair": (["time","latitude","longitude"], Tair_data),
+            "Qair": (["time","latitude","longitude"], Qair_data),
             "reference_height": (["latitude","longitude"], ref_height),
+            "canopy_height": (["latitude","longitude"], [[0]]),
             },
             coords={
             "time": times,
@@ -38,14 +39,18 @@ class TestSiteForcings(unittest.TestCase):
         )
 
         # Assign metadata to each variable: long_name, units, build_method, and qc_flags
-        self.target["var1"].attrs["long_name"] = "Variable 1"
-        self.target["var1"].attrs["units"] = "m"
-        self.target["var1"].attrs["build_method"] = "test"
-        self.target["var1"].attrs["qc_flags"] = "error1"
-        self.target["var2"].attrs["long_name"] = "Variable 2"
-        self.target["var2"].attrs["units"] = "W/m2"
-        self.target["var2"].attrs["build_method"] = "test2"
-        #self.target["var2"].attrs["qc_flags"] = "error2" Try with no errors on var2
+        self.target["Tair"].attrs["long_name"] = "Near-surface air temperature"
+        self.target["Tair"].attrs["ALMA_name"] = "Tair"
+        self.target["Tair"].attrs["CMIP_name"] = "ta"
+        self.target["Tair"].attrs["units"] = "K"
+        self.target["Tair"].attrs["build_method"] = "test"
+        self.target["Tair"].attrs["qc_flags"] = "error1"
+        self.target["Qair"].attrs["long_name"] = "Near-surface specific humidity"
+        self.target["Qair"].attrs["ALMA_name"] = "Qair"
+        self.target["Qair"].attrs["CMIP_name"] = "hus"
+        self.target["Qair"].attrs["units"] = "kg/kg"
+        self.target["Qair"].attrs["build_method"] = "test2"
+        #self.target["Qair"].attrs["qc_flags"] = "error2" Try with no errors on Qair
 
     @unittest.skip("Skipping unless needed for development")
     def testInitial(self):
@@ -67,10 +72,10 @@ class TestSiteForcings(unittest.TestCase):
         forcing2 = pd.Series([1, 2, 3, 4, 5], index=pd.date_range("2023-01-01", periods=5, freq="h", tz="UTC"))
 
         # Add the forcing to the SiteForcing object
-        site.setForcing("var1", "test", forcing1, reference_height=10.0)
-        site.setForcing("var2", "test2", forcing2, reference_height=10.0)
-        site.setQCFlag("var1", "error1")
-        #site.setQCFlag("var2", "error") Try with no errors on var2
+        site.setForcing("Tair", "K", "test", forcing1, reference_height=10.0)
+        site.setForcing("Qair", "kg/kg", "test2", forcing2, reference_height=10.0)
+        site.setQCFlag("Tair", "error1")
+        #site.setQCFlag("Qair", "error") Try with no errors on Qair
 
         ds = site.exportDataset()
 
@@ -80,8 +85,8 @@ class TestSiteForcings(unittest.TestCase):
         xrt.assert_equal(ds['longitude'], self.target['longitude'])
 
         # Check that the variables match the target
-        xrt.assert_equal(ds['var1'], self.target['var1'])
-        xrt.assert_equal(ds['var2'], self.target['var2'])
+        xrt.assert_equal(ds['Tair'], self.target['Tair'])
+        xrt.assert_equal(ds['Qair'], self.target['Qair'])
 
         # Check that the forcings match the target
         xrt.assert_equal(ds, self.target)
