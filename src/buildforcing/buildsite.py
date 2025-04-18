@@ -67,7 +67,7 @@ def BuildSite(
     # Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
     print('Warning: forcing conversion not yet implemented correctly.')
     model_forcings.setForcing('LWdown','W/m2', 'Raw LW down', nldas.data.LWdown, 10)
-    model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
+    model_forcings.setForcing('PSurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
     model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
     model_forcings.setForcing('Rainf','kg/m2/s','Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
     model_forcings.setForcing('Snowf','kg/m2/s','Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
