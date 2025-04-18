@@ -72,7 +72,7 @@ def BuildSite(
     model_forcings.setForcing('Rainf','kg/m2/s','Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
     model_forcings.setForcing('Snowf','kg/m2/s','Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
     model_forcings.setForcing('SWdown','W/m2','Raw SW down', nldas.data.SWdown, 10)
-    model_forcings.setForcing('Tair','K', downscaleTair, downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    model_forcings.setForcing('Tair','K', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
     model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas.data.Wind_E, 10)
 
     return model_forcings
