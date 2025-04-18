@@ -81,6 +81,6 @@ if __name__ == '__main__':
     # testing
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
-    end_date = datetime(2015, 1, 3, 23)
-    ds = BuildSite(site_name, start_date, end_date)
-    print(ds)  # Print the dataset to verify the output
+    end_date = datetime(2015, 2, 1, 23)
+    forcings = BuildSite(site_name, start_date, end_date)
+    forcings.saveNetCDF('C:/Users/clmbn/NMT_PhD/data/forcing/tonygrove.nc')

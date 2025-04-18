@@ -272,6 +272,10 @@ class siteForcings:
         # Add metadata to each variable
         for forcing_name in self.forcings.columns:
             output_ds[forcing_name].attrs['build_method'] = self.build_methods[forcing_name]
+            output_ds[forcing_name].attrs['AMLA_name'] = self.allowed_forcings_metadata[forcing_name].ALMA_name
+            output_ds[forcing_name].attrs['CMIP_name'] = self.allowed_forcings_metadata[forcing_name].CMIP_name
+            output_ds[forcing_name].attrs['long_name'] = self.allowed_forcings_metadata[forcing_name].long_name
+            output_ds[forcing_name].attrs['units'] = self.allowed_forcings_metadata[forcing_name].units
 
             if self.qc_flags.get(forcing_name) is not None:
                 output_ds[forcing_name].attrs['qc_flags'] = self.qc_flags[forcing_name]
@@ -304,13 +308,6 @@ class siteForcings:
         
         self.build_methods[forcing_name] = build_method
         self.forcings[forcing_name] = forcing_data
-
-        # Set the variable attributes for the forcing variable
-        self.forcings[forcing_name].attrs['AMLA_name'] = self.allowed_forcings_metadata[forcing_name].ALMA_name
-        self.forcings[forcing_name].attrs['CMIP_name'] = self.allowed_forcings_metadata[forcing_name].CMIP_name
-        self.forcings[forcing_name].attrs['long_name'] = self.allowed_forcings_metadata[forcing_name].long_name
-        self.forcings[forcing_name].attrs['units'] = self.allowed_forcings_metadata[forcing_name].units
-
 
     def setQCFlag(self, forcing_name, qc_flag):
         '''
