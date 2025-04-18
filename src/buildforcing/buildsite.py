@@ -75,7 +75,7 @@ def BuildSite(
     model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
     model_forcings.setForcing('Wind', 'Raw Wind', nldas.data.Wind_E, 10)
 
-    return model_forcings.exportDataset()
+    return model_forcings
 
 if __name__ == '__main__':
     # testing
