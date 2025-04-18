@@ -11,7 +11,7 @@ def BuildSite(
         site_name: str,
         start_date: datetime = None,
         end_date: datetime = None
-        ) -> xr.Dataset:
+        ) -> siteForcings:
     '''
     Build the forcing data for a site using NLDAS and PNNL Snotel data.
 
@@ -66,14 +66,14 @@ def BuildSite(
 
     # Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
     print('Warning: forcing conversion not yet implemented correctly.')
-    model_forcings.setForcing('LWdown', 'Raw LW down', nldas.data.LWdown, 10)
-    model_forcings.setForcing('Psurf', 'Raw P surf', nldas.data.PSurf, 10)
-    model_forcings.setForcing('Qair', 'Raw Qair', nldas.data.Qair, 10)
-    model_forcings.setForcing('Rainf', 'Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
-    model_forcings.setForcing('Snowf', 'Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
-    model_forcings.setForcing('SWdown', 'Raw SW down', nldas.data.SWdown, 10)
-    model_forcings.setForcing('Tair', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
-    model_forcings.setForcing('Wind', 'Raw Wind', nldas.data.Wind_E, 10)
+    model_forcings.setForcing('LWdown','W/m2', 'Raw LW down', nldas.data.LWdown, 10)
+    model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
+    model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
+    model_forcings.setForcing('Rainf','kg/m2/s','Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
+    model_forcings.setForcing('Snowf','kg/m2/s','Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
+    model_forcings.setForcing('SWdown','W/m2','Raw SW down', nldas.data.SWdown, 10)
+    model_forcings.setForcing('Tair','K', downscaleTair, downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas.data.Wind_E, 10)
 
     return model_forcings
 
