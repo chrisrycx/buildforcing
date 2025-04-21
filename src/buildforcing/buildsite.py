@@ -3,7 +3,7 @@ The main entry point for the buildforcing package. This package is used to build
 '''
 from datetime import datetime
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
-from buildforcing.downscale import downscaleTair
+from buildforcing.downscale import downscaleTair, downscalePrecip, partitionPrecip
 import os
 import xarray as xr
 
@@ -64,15 +64,24 @@ def BuildSite(
     # Initialize the dataset
     model_forcings = siteForcings(site_name, start_date, end_date, snotel.latitude, snotel.longitude, 10)
 
-    # Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
-    print('Warning: forcing conversion not yet implemented correctly.')
+    # -- Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
+    print('Warning: forcing conversion not yet implemented correctly for Qair and Wind.')
     model_forcings.setForcing('LWdown','W/m2', 'Raw LW down', nldas.data.LWdown, 10)
-    model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
-    model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
-    model_forcings.setForcing('Rainf','kg/m2/s','Raw Rainf', nldas.data.Rainf, 10)  # Need rainfall rate kg/m2/s
-    model_forcings.setForcing('Snowf','kg/m2/s','Raw Snowf', nldas.data.Rainf, 10)  # Need snowfall rate kg/m2/s
     model_forcings.setForcing('SWdown','W/m2','Raw SW down', nldas.data.SWdown, 10)
-    model_forcings.setForcing('Tair','K', 'downscaleTair', downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C), 10)
+    model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
+    
+    model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
+    
+    # Downscale temperature and use for partition precipitation
+    Tair_corrected = downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C)
+    precip_corrected = downscalePrecip(nldas.data.Precip, snotel.data.precip_mm)
+    precip_partitioned = partitionPrecip(precip_corrected, Tair_corrected)
+
+    model_forcings.setForcing('Tair','K', 'downscaleTair', Tair_corrected, 10)
+    model_forcings.setForcing('Rainf','kg/m2/s','partition v0', precip_partitioned['rain_mm']/3600, 10)  # Need rainfall rate kg/m2/s
+    model_forcings.setForcing('Snowf','kg/m2/s','partition v0', precip_partitioned['snow_mm']/3600, 10)  # Need snowfall rate kg/m2/s
+    
+    
     model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas.data.Wind_E, 10)
 
     return model_forcings

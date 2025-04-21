@@ -2,6 +2,7 @@
 Objects to get and store data from NLDAS or the PNNL snotel data (on Google Drive).
 '''
 
+from typing import TypedDict
 import requests
 import pandas as pd
 from datetime import datetime, date
@@ -10,6 +11,13 @@ from timezonefinder import TimezoneFinder
 import os
 import xarray as xr
 
+class SnotelData(TypedDict):
+    T_max_C: float
+    T_min_C: float
+    T_avg_C: float
+    precip_mm: float
+    swe_mm: float
+
 class PNNLSnotel:
     '''
     Class to store and manipulate the PNNL Snotel data.
@@ -17,6 +25,7 @@ class PNNLSnotel:
     
     def __init__(self, site_name: str, storage_path: str):
         self.site_name = site_name
+        self.data: pd.DataFrame = pd.DataFrame()
 
         # Load PNNL data path from environment variable
         self.PNNL_DATA_PATH = os.path.join(storage_path, 'bcqc_data_v2')
@@ -82,7 +91,7 @@ class PNNLSnotel:
         snotel_data['precip_mm'] = snotel_data['precip_in'] * 25.4
         snotel_data['swe_mm'] = snotel_data['swe_in'] * 25.4
 
-        self.data: pd.DataFrame = snotel_data[['T_max_C', 'T_min_C', 'T_avg_C', 'precip_mm', 'swe_mm']].copy()
+        self.data = snotel_data[['T_max_C', 'T_min_C', 'T_avg_C', 'precip_mm', 'swe_mm']].copy()
 
         # Localize the index to the timezone of the site
         self.data.index = self.data.index.tz_localize(self.timezone)

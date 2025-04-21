@@ -69,43 +69,47 @@ def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin
 
     return nldas_Tair_K_downscaled
 
-def downscalePrecip(nldas_precip_mm: pd.Series, snotel_precip_mm: pd.Series) -> pd.Series:
+def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
     '''
     Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
 
-    ** Note ** Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
+    Note: Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
-    Output is in mm with UTC timezone as per the target dataframe.
+    Output is in hourly total precip [mm = kg/m2] with UTC timezone as per the target dataframe.
 
     '''
     # Check if the input data is timezone aware
-    if nldas_precip_mm.index.tz is None:
+    if nldas_hourly_precip_mm.index.tz is None:
         raise ValueError("NLDAS data must be timezone aware (UTC)")
-    if snotel_precip_mm.index.tz is None:
+    if snotel_daily_precip_mm.index.tz is None:
         raise ValueError("Snotel precipitation data must be timezone aware")
     
     # Convert to snotel timezone
-    nldas_precip_mm = nldas_precip_mm.tz_convert(snotel_precip_mm.index.tz)
+    nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
     # Resample the NLDAS data to daily totals
-    nldas_daily = nldas_precip_mm.resample('D').sum()
+    nldas_daily = nldas_hourly_precip_mm.resample('D').sum()
 
     # Find a scaling factor for each day
     nldas_daily.name = 'nldas_daily'
-    snotel_precip_mm.name = 'snotel_daily'
-    nldas_daily_df = pd.merge(nldas_daily, snotel_precip_mm, how='left', left_index=True, right_index=True)
+    snotel_daily_precip_mm.name = 'snotel_daily'
+    nldas_daily_df = pd.merge(nldas_daily, snotel_daily_precip_mm, how='left', left_index=True, right_index=True)
     nldas_daily_df['scaling_factor'] = nldas_daily_df['snotel_daily'] / nldas_daily_df['nldas_daily']
 
+    # Merge scaling factor back into the original NLDAS data
+    nldas_hourly_precip_mm.name = 'nldas_hourly'
+    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_daily_df[['scaling_factor']], how='left', left_index=True, right_index=True)
+    nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].interpolate('ffill')
+
     # Multiply the NLDAS hourly data by the scaling factor for each day
-    scaling_factor = nldas_daily_df['scaling_factor'].resample('h').ffill()
-    nldas_precip_mm_downscaled = nldas_precip_mm * scaling_factor
+    nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
 
     # Change timezone back to UTC
-    nldas_precip_mm_downscaled = nldas_precip_mm_downscaled.tz_convert('UTC')
+    nldas_hourly = nldas_hourly.tz_convert('UTC')
 
-    return nldas_precip_mm_downscaled
+    return nldas_hourly['downscaled']
 
-def partitionPrecip(precip_mm: pd.Series, Tair_C: pd.Series) -> pd.DataFrame:
+def partitionPrecip(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''
     Partition precipitation into rain and snow.
     V0: Just partition if Tair >= 0 C, else snow.
@@ -114,6 +118,9 @@ def partitionPrecip(precip_mm: pd.Series, Tair_C: pd.Series) -> pd.DataFrame:
     Output is a DataFrame with columns 'rain_mm' and 'snow_mm'.
 
     '''
+    # Change to C from K
+    Tair_C = Tair_K - 273.15
+
     # Check if the input data has the same index
     if not precip_mm.index.equals(Tair_C.index):
         raise ValueError("Precipitation and temperature data must have the same index")
