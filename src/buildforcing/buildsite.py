@@ -69,20 +69,21 @@ def BuildSite(
     model_forcings.setForcing('LWdown','W/m2', 'Raw LW down', nldas.data.LWdown, 10)
     model_forcings.setForcing('SWdown','W/m2','Raw SW down', nldas.data.SWdown, 10)
     model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
-    
     model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
     
     # Downscale temperature and use for partition precipitation
     Tair_corrected = downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C)
-    precip_corrected = downscalePrecip(nldas.data.Precip, snotel.data.precip_mm)
+    precip_corrected = downscalePrecip(nldas.data.Rainf, snotel.data.precip_mm)
     precip_partitioned = partitionPrecip(precip_corrected, Tair_corrected)
 
     model_forcings.setForcing('Tair','K', 'downscaleTair', Tair_corrected, 10)
     model_forcings.setForcing('Rainf','kg/m2/s','partition v0', precip_partitioned['rain_mm']/3600, 10)  # Need rainfall rate kg/m2/s
     model_forcings.setForcing('Snowf','kg/m2/s','partition v0', precip_partitioned['snow_mm']/3600, 10)  # Need snowfall rate kg/m2/s
     
-    
-    model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas.data.Wind_E, 10)
+    # Combine wind components
+    nldas_wind = nldas.data.Wind_N**2 + nldas.data.Wind_E**2
+    nldas_wind = nldas_wind**0.5
+    model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas_wind, 10)
 
     return model_forcings
 
@@ -92,4 +93,4 @@ if __name__ == '__main__':
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015, 2, 1, 23)
     forcings = BuildSite(site_name, start_date, end_date)
-    forcings.saveNetCDF('C:/Users/clmbn/NMT_PhD/data/forcing/tonygrove.nc')
+    forcings.saveNetCDF('C:/Users/clmbn/NMT_PhD/data/forcing/tonygrove_20150101_20150201_v0.nc')
