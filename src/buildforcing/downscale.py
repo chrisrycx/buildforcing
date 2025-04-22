@@ -99,7 +99,7 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
     # Merge scaling factor back into the original NLDAS data
     nldas_hourly_precip_mm.name = 'nldas_hourly'
     nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_daily_df[['scaling_factor']], how='left', left_index=True, right_index=True)
-    nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].interpolate('ffill')
+    nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
 
     # Multiply the NLDAS hourly data by the scaling factor for each day
     nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']

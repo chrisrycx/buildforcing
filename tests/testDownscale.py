@@ -87,7 +87,7 @@ class TestDownscalePrecip(unittest.TestCase):
         )
 
         # Resample to hourly data
-        self.precip_mm = self.precip_mm.resample("1H").ffill()
+        self.precip_mm = self.precip_mm.resample("1h").ffill()
 
         # 4 days of SNOTEL data (daily data), first day will be doubled, second day will be halved, third day will be missing, fourth day will be zero
         self.snotel_mm = pd.Series(
@@ -99,7 +99,7 @@ class TestDownscalePrecip(unittest.TestCase):
         '''
         Test that the data is scaled correctly by just looking at the first two days.
         '''
-        # By my calculation, the first day total precip should be 90
+        # By my calculation, the first day total precip should be 60 
         rescaled = downscalePrecip(self.precip_mm['2023-01-01':'2023-01-02 23:00'], self.snotel_mm['2023-01-01':'2023-01-02 18:00'])
 
         # Assert the result is a pandas Series
@@ -108,9 +108,9 @@ class TestDownscalePrecip(unittest.TestCase):
         # Assert the result has the same index as the input NLDAS data
         self.assertTrue(rescaled.index.equals(self.precip_mm['2023-01-01':'2023-01-02 23:00'].index))
 
-        # Spot check that the values are scaled correctly
-        self.assertEqual(rescaled.iloc[0], 2)
-        self.assertEqual(rescaled.iloc[5], 3)
+        # Spot check that the daily total precip is correct
+        self.assertEqual(rescaled.resample('1D').sum().iloc[0], self.snotel_mm['2023-01-01'])
+        self.assertEqual(rescaled.resample('1D').sum().iloc[1], self.snotel_mm['2023-01-02'])
 
     def test_zero(self):
         '''
