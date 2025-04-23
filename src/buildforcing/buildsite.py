@@ -93,13 +93,18 @@ if __name__ == '__main__':
 
     """Retrieve the installed version of the package."""
     try:
+        buildforcing_version = version('buildforcing')
         print(version('buildforcing'))
     except PackageNotFoundError:
+        # package is not installed
         print("No package found")
+        exit(1)
 
-    forcing_storage_path = os.getenv('FORCING_PATH')
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015, 2, 1, 23)
     forcings = BuildSite(site_name, start_date, end_date)
-    forcings.saveNetCDF(os.path.join(forcing_storage_path,'tonygrove_20150101_20150201_v0.1.nc'))
+
+    forcing_storage_path = os.getenv('FORCING_PATH')
+    file_name = f'{site_name.strip().lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_v{buildforcing_version}.nc'
+    forcings.saveNetCDF(os.path.join(forcing_storage_path,file_name))
