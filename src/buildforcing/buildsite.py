@@ -89,8 +89,17 @@ def BuildSite(
 
 if __name__ == '__main__':
     # testing
+    from importlib.metadata import version, PackageNotFoundError
+
+    """Retrieve the installed version of the package."""
+    try:
+        print(version('buildforcing'))
+    except PackageNotFoundError:
+        print("No package found")
+
+    forcing_storage_path = os.getenv('FORCING_PATH')
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
     end_date = datetime(2015, 2, 1, 23)
     forcings = BuildSite(site_name, start_date, end_date)
-    forcings.saveNetCDF('C:/Users/clmbn/NMT_PhD/data/forcing/tonygrove_20150101_20150201_v0.nc')
+    forcings.saveNetCDF(os.path.join(forcing_storage_path,'tonygrove_20150101_20150201_v0.1.nc'))
