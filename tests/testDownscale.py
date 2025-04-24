@@ -1,8 +1,9 @@
 import unittest
 import pandas as pd
+import numpy as np
 from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
-from buildforcing.downscale import downscaleTair, downscalePrecip
+from buildforcing.downscale import downscaleTair, downscalePrecip, partitionPrecip
 
 class TestDownscaleTair(unittest.TestCase):
     def setUp(self):
@@ -122,10 +123,59 @@ class TestDownscalePrecip(unittest.TestCase):
         '''
         Test handling of missing day in SNOTEL data.
         '''
-        print("Need to implement this test")
+        # Expected scaling factors should be the different snotel totals divided [60,156,60,156]
+        expected_offsets = np.array([20, 13, np.nan, 0]) / np.array([60, 156, 60, 156])
+        mean_offset = np.nanmean(expected_offsets)
 
+        # Rescale the NLDAS data using the SNOTEL data
+        rescaled = downscalePrecip(self.precip_mm, self.snotel_mm)
+        rescaled_day = rescaled.resample('1D').sum()
+        precip_day = self.precip_mm.resample('1D').sum()
 
-#def test_partitionPrecip():
+        # Check that third day sum rescaled divided by third day sum NLDAS is equal to the mean offset
+        self.assertAlmostEqual(rescaled.resample('1D').sum().iloc[2]/self.precip_mm.resample('1D').sum().iloc[2], mean_offset, places=2)
+
+class TestPartitionPrecip(unittest.TestCase):
+    def setUp(self):
+        # Create a dummy precipitation dataset (4 days with hourly data)
+        self.precip_mm = pd.Series(
+            [1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8],
+            index=pd.date_range("2023-01-01 00:00", periods=16, freq="6h", tz="UTC")
+        )
+
+        # Create an array of temperatures (in Kelvin) for the same period
+        temps_K = np.array([1, 2, -1, 1, 1, 0, 3, -5] * 2)
+        temps_K = temps_K + 273.15  # Convert to Kelvin
+        self.temps_K = pd.Series(
+            temps_K,
+            index=pd.date_range("2023-01-01 00:00", periods=16, freq="6h", tz="UTC")
+        )
+
+    def test_partitionPrecip(self):
+        '''
+        Test the partitioning of precipitation data based on temperature thresholds.
+        '''
+        # Expected arrays for rain and snow
+        expected_snow = np.array([0, 0, 3, 0, 0, 0, 0, 8] * 2)
+        expected_rain = np.array([1, 2, 0, 4, 5, 6, 7, 0] * 2)
+        
+        # Call the function
+        precip_partitioned = partitionPrecip(self.precip_mm, self.temps_K)
+        rain = precip_partitioned['rain_mm']
+        snow = precip_partitioned['snow_mm']
+
+        # Assert the result is a pandas Series
+        self.assertIsInstance(rain, pd.Series)
+        self.assertIsInstance(snow, pd.Series)
+
+        # Assert the result has the same index as the input NLDAS data
+        self.assertTrue(rain.index.equals(self.precip_mm.index))
+        self.assertTrue(snow.index.equals(self.precip_mm.index))
+
+        # Assert that the expected values match the actual values
+        np.testing.assert_array_almost_equal(rain.values, expected_rain, decimal=2)
+        np.testing.assert_array_almost_equal(snow.values, expected_snow, decimal=2)
+
 
 if __name__ == "__main__":
     unittest.main()

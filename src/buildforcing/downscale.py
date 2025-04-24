@@ -95,6 +95,8 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
     snotel_daily_precip_mm.name = 'snotel_daily'
     nldas_daily_df = pd.merge(nldas_daily, snotel_daily_precip_mm, how='left', left_index=True, right_index=True)
     nldas_daily_df['scaling_factor'] = nldas_daily_df['snotel_daily'] / nldas_daily_df['nldas_daily']
+    average_scaling_factor = nldas_daily_df['scaling_factor'].dropna().mean()  #use to fill any missing values
+    nldas_daily_df['scaling_factor'] = nldas_daily_df['scaling_factor'].fillna(average_scaling_factor)
 
     # Merge scaling factor back into the original NLDAS data
     nldas_hourly_precip_mm.name = 'nldas_hourly'

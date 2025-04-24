@@ -315,6 +315,10 @@ class siteForcings:
         if not forcing_data.index.equals(self.forcings.index):
             raise ValueError("Forcing data must have the same index as the site forcings")
         
+        # Ensure there are no missing values in the forcing data
+        if forcing_data.isnull().any():
+            raise ValueError(f"Missing values in {forcing_name} forcing data")
+        
         self.build_methods[forcing_name] = build_method
         self.forcings[forcing_name] = forcing_data
 
