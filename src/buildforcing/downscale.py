@@ -72,6 +72,14 @@ def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin
 def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
     '''
     Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
+    Due to differences in precipitation timing between NLDAS and snotel, the correction is based on the monthly
+    total precipitation at the Snotel site.
+
+    Pcorrected = Pnldas * (Total Monthly Psnotel / Total Pnldas Monthly)
+
+    Edge Cases:
+    If Snotel has significant precipitation but NLDAS does not, set to zero (**Improve this**)
+    If NLDAS has significant precipitation but Snotel does not, set to zero (**Improve this**)
 
     Note: Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
@@ -87,23 +95,31 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
     # Convert to snotel timezone
     nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
-    # Resample the NLDAS data to daily totals
-    nldas_daily = nldas_hourly_precip_mm.resample('D').sum()
+    # Replace any Snotel NaN values with 0.0
+    snotel_daily_precip_mm = snotel_daily_precip_mm.fillna(0.0)
 
-    # Find a scaling factor for each day
-    nldas_daily.name = 'nldas_daily'
-    snotel_daily_precip_mm.name = 'snotel_daily'
-    nldas_daily_df = pd.merge(nldas_daily, snotel_daily_precip_mm, how='left', left_index=True, right_index=True)
-    nldas_daily_df['scaling_factor'] = nldas_daily_df['snotel_daily'] / nldas_daily_df['nldas_daily']
-    average_scaling_factor = nldas_daily_df['scaling_factor'].dropna().mean()  #use to fill any missing values
-    nldas_daily_df['scaling_factor'] = nldas_daily_df['scaling_factor'].fillna(average_scaling_factor)
+    # Resample the NLDAS and Snotel to monthly totals
+    nldas_monthly = nldas_hourly_precip_mm.resample('30D').sum()
+    snotel_monthly = snotel_daily_precip_mm.resample('30D').sum()
+
+    # Merge the monthly data to find the scaling factor
+    nldas_monthly.name = 'nldas_monthly'
+    snotel_monthly.name = 'snotel_monthly'
+    nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel_monthly'] / nldas_monthly_df['nldas_monthly']
+
+    # Handle edge cases
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['nldas_monthly'] >= 0.5, 0.0)  # Potentially no precip in NLDAS
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['snotel_monthly'] > 0, 0.0)  # Potentially no precip in Snotel
 
     # Merge scaling factor back into the original NLDAS data
     nldas_hourly_precip_mm.name = 'nldas_hourly'
-    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_daily_df[['scaling_factor']], how='left', left_index=True, right_index=True)
+    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_monthly_df['scaling_factor'], how='left', left_index=True, right_index=True)
+    
+    # Forward fill the scaling factor to fill in any missing values
     nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
 
-    # Multiply the NLDAS hourly data by the scaling factor for each day
+    # Multiply the NLDAS hourly data by the scaling factor for each hour
     nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
 
     # Change timezone back to UTC

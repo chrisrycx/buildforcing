@@ -84,7 +84,7 @@ class TestDownscalePrecip(unittest.TestCase):
         # Create a dummy precipitation dataset (4 days with hourly data)
         self.precip_mm = pd.Series(
             [1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8],
-            index=pd.date_range("2023-01-01 00:00", periods=16, freq="6h", tz="UTC")
+            index=pd.date_range("2023-01-02 00:00", periods=16, freq="6h", tz="UTC")
         )
 
         # Resample to hourly data
@@ -93,47 +93,32 @@ class TestDownscalePrecip(unittest.TestCase):
         # 4 days of SNOTEL data (daily data), first day will be doubled, second day will be halved, third day will be missing, fourth day will be zero
         self.snotel_mm = pd.Series(
             [20,13,None,0],
-            index=pd.date_range("2023-01-01 00:00", periods=4, freq="24h", tz="UTC")
+            index=pd.date_range("2023-01-02 00:00", periods=4, freq="24h", tz="UTC")
         )
     
     def test_scaling(self):
         '''
-        Test that the data is scaled correctly by just looking at the first two days.
+        Basic test of the downscaling function.
         '''
         # By my calculation, the first day total precip should be 60 
-        rescaled = downscalePrecip(self.precip_mm['2023-01-01':'2023-01-02 23:00'], self.snotel_mm['2023-01-01':'2023-01-02 18:00'])
+        rescaled = downscalePrecip(self.precip_mm, self.snotel_mm)
 
         # Assert the result is a pandas Series
         self.assertIsInstance(rescaled, pd.Series)
 
         # Assert the result has the same index as the input NLDAS data
-        self.assertTrue(rescaled.index.equals(self.precip_mm['2023-01-01':'2023-01-02 23:00'].index))
+        self.assertTrue(rescaled.index.equals(self.precip_mm.index))
 
-        # Spot check that the daily total precip is correct
-        self.assertEqual(rescaled.resample('1D').sum().iloc[0], self.snotel_mm['2023-01-01'])
-        self.assertEqual(rescaled.resample('1D').sum().iloc[1], self.snotel_mm['2023-01-02'])
+        # Check that the sum of the rescaled data matches the snotel sum for this single month test dataset
+        self.assertEqual(rescaled.sum(), self.snotel_mm.fillna(0).sum())
 
-    def test_zero(self):
+    #Skip for now
+    @unittest.skip("Skipping test_zero until implemented")
+    def test_zero_monthly_snotel(self):
         '''
         Verify correct handling of zeros in the SNOTEL data, but NLDAS is showing precip.
         '''
         print("Need to implement this test")
-    
-    def test_missingday(self):
-        '''
-        Test handling of missing day in SNOTEL data.
-        '''
-        # Expected scaling factors should be the different snotel totals divided [60,156,60,156]
-        expected_offsets = np.array([20, 13, np.nan, 0]) / np.array([60, 156, 60, 156])
-        mean_offset = np.nanmean(expected_offsets)
-
-        # Rescale the NLDAS data using the SNOTEL data
-        rescaled = downscalePrecip(self.precip_mm, self.snotel_mm)
-        rescaled_day = rescaled.resample('1D').sum()
-        precip_day = self.precip_mm.resample('1D').sum()
-
-        # Check that third day sum rescaled divided by third day sum NLDAS is equal to the mean offset
-        self.assertAlmostEqual(rescaled.resample('1D').sum().iloc[2]/self.precip_mm.resample('1D').sum().iloc[2], mean_offset, places=2)
 
 class TestPartitionPrecip(unittest.TestCase):
     def setUp(self):
