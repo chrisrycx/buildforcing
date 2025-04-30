@@ -102,7 +102,7 @@ if __name__ == '__main__':
 
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
-    end_date = datetime(2015, 2, 1, 23)
+    end_date = datetime(2015, 3, 1, 23)
     forcings = BuildSite(site_name, start_date, end_date)
 
     forcing_storage_path = os.getenv('FORCING_PATH')

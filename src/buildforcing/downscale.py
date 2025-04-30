@@ -98,9 +98,14 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
     # Replace any Snotel NaN values with 0.0
     snotel_daily_precip_mm = snotel_daily_precip_mm.fillna(0.0)
 
+    # Resample nldas to daily totals
+    # This is needed to ensure the 30day resampling aligns with the snotel data
+    nldas_daily = nldas_hourly_precip_mm.resample('D').sum()
+    snotel_daily_subset = snotel_daily_precip_mm.loc[nldas_daily.index]
+
     # Resample the NLDAS and Snotel to monthly totals
     nldas_monthly = nldas_hourly_precip_mm.resample('30D').sum()
-    snotel_monthly = snotel_daily_precip_mm.resample('30D').sum()
+    snotel_monthly = snotel_daily_subset.resample('30D').sum()
 
     # Merge the monthly data to find the scaling factor
     nldas_monthly.name = 'nldas_monthly'
@@ -112,11 +117,17 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
     nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['nldas_monthly'] >= 0.5, 0.0)  # Potentially no precip in NLDAS
     nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['snotel_monthly'] > 0, 0.0)  # Potentially no precip in Snotel
 
-    # Merge scaling factor back into the original NLDAS data
+    # Upscale the scaling factor to hourly data
+    # This is done by repeating the monthly scaling factor for each hour in the month
+    nldas_scaling_factor = nldas_monthly_df['scaling_factor'].resample('h').ffill()
+    nldas_scaling_factor.name = 'scaling_factor'
+
+    # Create a dataframe with the scaling factor for each hour
     nldas_hourly_precip_mm.name = 'nldas_hourly'
-    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_monthly_df['scaling_factor'], how='left', left_index=True, right_index=True)
+    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_scaling_factor, how='left', left_index=True, right_index=True)
     
     # Forward fill the scaling factor to fill in any missing values
+    # This is required even when upsampling the scaling factor to hourly data because the upsampled data may not have the same index as the original data
     nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
 
     # Multiply the NLDAS hourly data by the scaling factor for each hour
