@@ -4,9 +4,10 @@ Functions used to downscale NLDAS data for use with point modeling.
 import pandas as pd
 
 
-def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
+def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
     '''
     Downscale the NLDAS temperature data to the Snotel site using snotel max and min temperature data.
+    V0 - This algorithm was my first approach to downscaling temperature, it appear problematic in cases.
 
     ** Note ** Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
@@ -63,6 +64,68 @@ def downscaleTair(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin
 
     # Finally calculate the downscaled temperature
     nldas_Tair_K_downscaled = nldas_Tair_k_df['Tair'] + nldas_Tair_k_df['snotel_diffs']
+
+    # Change timezone back to UTC
+    nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
+
+    return nldas_Tair_K_downscaled
+
+def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
+    '''
+    Downscale the NLDAS temperature data to the Snotel site using snotel max and min temperature data.
+
+    V1 - This is simply a daily rescaling and shift of the temperatures.
+
+    ** Note ** Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
+
+    Output is in K with UTC timezone as per the target dataframe.
+
+    '''
+    # Check if the input data is timezone aware
+    if nldas_Tair_K.index.tz is None:
+        raise ValueError("NLDAS data must be timezone aware (UTC)")
+    if snotel_Tmax_C.index.tz is None:
+        raise ValueError("Snotel Tmax data must be timezone aware")
+    
+    # Convert to snotel timezone
+    nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_Tmax_C.index.tz)
+
+    # Convert snotel temperatures to K
+    snotel_Tmax_K = snotel_Tmax_C + 273.15
+    snotel_Tmin_K = snotel_Tmin_C + 273.15
+    snotel_Tmax_K.name = 'snotel_Tmax'
+    snotel_Tmin_K.name = 'snotel_Tmin'
+
+    # Resample the NLDAS data to daily max and min temperatures
+    nldas_daily_max = nldas_Tair_K.resample('D').max()
+    nldas_daily_min = nldas_Tair_K.resample('D').min()
+    nldas_daily_max.name = 'nldas_daily_max'
+    nldas_daily_min.name = 'nldas_daily_min'
+
+    # Linearly interpolate any missing values in the snotel data
+    snotel_Tmax_K = snotel_Tmax_K.interpolate()
+    snotel_Tmin_K = snotel_Tmin_K.interpolate()
+
+    # Combine daily values into one dataframe
+    daily_data = pd.concat([nldas_daily_max, nldas_daily_min], axis=1)
+    daily_data = pd.merge(daily_data, snotel_Tmax_K, how='left', left_index=True, right_index=True)
+    daily_data = pd.merge(daily_data, snotel_Tmin_K, how='left', left_index=True, right_index=True)
+
+    # Calculate rescaling and shift factors
+    daily_data['rescale'] = (daily_data['snotel_Tmax'] - daily_data['snotel_Tmin']) / (daily_data['nldas_daily_max'] - daily_data['nldas_daily_min'])
+    daily_data['shift'] = daily_data['snotel_Tmin'] - daily_data['nldas_daily_min']
+
+    # Join shift and rescale factors to the NLDAS data
+    nldas_Tair_K.name = 'nldas_Tair'
+    nldas_Tair_K = pd.merge(nldas_Tair_K, daily_data[['rescale', 'shift']], how='left', left_index=True, right_index=True)
+
+    # Forward fill NaN values in rescale and shift
+    nldas_Tair_K['rescale'] = nldas_Tair_K['rescale'].ffill()
+    nldas_Tair_K['shift'] = nldas_Tair_K['shift'].ffill()
+
+    # Finally calculate the downscaled temperature
+    nldas_Tair_K['corrected'] = nldas_Tair_K['nldas_Tair'] * nldas_Tair_K['rescale'] + nldas_Tair_K['shift']
+    nldas_Tair_K_downscaled = nldas_Tair_K['corrected']
 
     # Change timezone back to UTC
     nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
