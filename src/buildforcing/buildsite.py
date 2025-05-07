@@ -3,7 +3,7 @@ The main entry point for the buildforcing package. This package is used to build
 '''
 from datetime import datetime
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
-from buildforcing.downscale import downscaleTair, downscalePrecip, partitionPrecip
+from buildforcing.downscale import downscaleTairV1, downscalePrecip, partitionPrecip
 import os
 import xarray as xr
 
@@ -72,7 +72,7 @@ def BuildSite(
     model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
     
     # Downscale temperature and use for partition precipitation
-    Tair_corrected = downscaleTair(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C)
+    Tair_corrected = downscaleTairV1(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C)
     precip_corrected = downscalePrecip(nldas.data.Rainf, snotel.data.precip_mm)
     precip_partitioned = partitionPrecip(precip_corrected, Tair_corrected)
 
@@ -89,16 +89,7 @@ def BuildSite(
 
 if __name__ == '__main__':
     # testing
-    from importlib.metadata import version, PackageNotFoundError
-
-    """Retrieve the installed version of the package."""
-    try:
-        buildforcing_version = version('buildforcing')
-        print(version('buildforcing'))
-    except PackageNotFoundError:
-        # package is not installed
-        print("No package found")
-        exit(1)
+    buildforcing_version = '0.3.0'  #Specify manually since project toml doesn't change
 
     site_name = 'Tony Grove RS'
     start_date = datetime(2015, 1, 1)
@@ -106,5 +97,5 @@ if __name__ == '__main__':
     forcings = BuildSite(site_name, start_date, end_date)
 
     forcing_storage_path = os.getenv('FORCING_PATH')
-    file_name = f'{site_name.strip().lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_v{buildforcing_version}.nc'
+    file_name = f'{site_name.replace(' ','').lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_v{buildforcing_version}.nc'
     forcings.saveNetCDF(os.path.join(forcing_storage_path,file_name))

@@ -113,18 +113,19 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     # Calculate rescaling and shift factors
     daily_data['rescale'] = (daily_data['snotel_Tmax'] - daily_data['snotel_Tmin']) / (daily_data['nldas_daily_max'] - daily_data['nldas_daily_min'])
-    daily_data['shift'] = daily_data['snotel_Tmin'] - daily_data['nldas_daily_min']
 
     # Join shift and rescale factors to the NLDAS data
     nldas_Tair_K.name = 'nldas_Tair'
-    nldas_Tair_K = pd.merge(nldas_Tair_K, daily_data[['rescale', 'shift']], how='left', left_index=True, right_index=True)
+    nldas_Tair_K = pd.merge(nldas_Tair_K, daily_data[['rescale', 'nldas_daily_min', 'snotel_Tmin']], how='left', left_index=True, right_index=True)
 
-    # Forward fill NaN values in rescale and shift
-    nldas_Tair_K['rescale'] = nldas_Tair_K['rescale'].ffill()
-    nldas_Tair_K['shift'] = nldas_Tair_K['shift'].ffill()
+    # Forward fill NaN values
+    nldas_Tair_K = nldas_Tair_K.ffill()
+
+    # Backfill as well if needed
+    nldas_Tair_K = nldas_Tair_K.bfill()
 
     # Finally calculate the downscaled temperature
-    nldas_Tair_K['corrected'] = nldas_Tair_K['nldas_Tair'] * nldas_Tair_K['rescale'] + nldas_Tair_K['shift']
+    nldas_Tair_K['corrected'] = (nldas_Tair_K['nldas_Tair'] - nldas_Tair_K['nldas_daily_min']) * nldas_Tair_K['rescale'] + nldas_Tair_K['snotel_Tmin'] 
     nldas_Tair_K_downscaled = nldas_Tair_K['corrected']
 
     # Change timezone back to UTC
