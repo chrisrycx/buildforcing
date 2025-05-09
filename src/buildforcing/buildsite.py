@@ -6,6 +6,26 @@ from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
 from buildforcing.downscale import downscaleTairV1, downscalePrecip, partitionPrecip
 import os
 import xarray as xr
+import pandas as pd
+
+def findUsableDates(snotel: PNNLSnotel) -> tuple[datetime, datetime]:
+    '''
+    Determine what date range is usable for the forcing data based on the snotel data.
+    Depending on the downscaling method, this may change.
+    '''
+
+    # Find the first date in the index where the 'T_max_C', 'T_min_C', and 'precip_mm' columns are not NaN
+    good_index: pd.DatetimeIndex = snotel.data.index[snotel.data['T_max_C'].notna() & snotel.data['T_min_C'].notna() & snotel.data['precip_mm'].notna()]
+    
+    # There should probably be at least 15 days of data to be minimally usable for testing
+    if len(good_index) < 15:
+        raise ValueError(f'Not enough usable data for site {snotel.site_name}. Only {len(good_index)} days of data found.')
+    
+    # Remove timezone information from the index
+    good_index = good_index.tz_localize(None)
+    #good_index = good_index.tz_convert('UTC').tz_localize(None)
+    
+    return (good_index[0].to_pydatetime(), good_index[-1].to_pydatetime())  # Return the first and last date in the index
 
 def BuildSite(
         site_name: str,
@@ -50,6 +70,19 @@ def BuildSite(
         start_date = snotel.start_date
     if end_date is None:
         end_date = snotel.end_date
+    
+    # Assess the date range of the snotel data
+    usable_snotel_start_date, usable_snotel_end_date = findUsableDates(snotel)
+
+    # Ensure date range does not exceed snotel data range
+    # Use snotel start and end date if date range exceeds snotel data range
+    if start_date is not None and end_date is not None:
+        if start_date < usable_snotel_start_date:
+            print(f'Start date {start_date} is before usable snotel start date {usable_snotel_start_date}. Updating start date.')
+            start_date = usable_snotel_start_date
+        if end_date > usable_snotel_end_date:
+            print(f'End date {end_date} is after usable snotel end date {usable_snotel_end_date}. Updating end date.')
+            end_date = usable_snotel_end_date
 
     # Load NLDAS data, locally if possible
     # Forcings 'LWdown','Psurf','Qair','Rainf','SWdown','Tair','Wind_E','Wind_N'

@@ -7,9 +7,9 @@ from datetime import datetime
 
 buildforcing_version = '0.3.0'  #Specify manually since project toml doesn't change
 
-site_name = 'Lewis Peak'
-start_date = datetime(2015, 1, 1)
-end_date = datetime(2015, 3, 1, 23)
+site_name = 'Tony Grove RS'
+start_date = datetime(2009, 10, 1)
+end_date = datetime(2018, 7, 4, 23)
 forcings = BuildSite(site_name, start_date, end_date)
 
 forcing_storage_path = os.getenv('FORCING_PATH')

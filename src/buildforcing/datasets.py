@@ -59,7 +59,7 @@ class PNNLSnotel:
                     self.latitude: float = float(column_values[5])
                     self.longitude: float = float(column_values[6])
                     self.start_date: datetime = datetime.strptime(column_values[7], '%m/%d/%Y')
-                    self.end_date:datetime = datetime.strptime(column_values[8], '%m/%d/%Y')
+                    self.end_date: datetime = datetime.strptime(column_values[8], '%m/%d/%Y')
         
         return site_match
     

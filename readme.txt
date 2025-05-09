@@ -1,4 +1,5 @@
 Version History:
+Version 0.3.2 - 2025-05-09 - Fixed problem if snotel does not contain usable data for specified time range.
 Version 0.3.1 - 2025-05-08 - Moved buildsite test out of script to fix potential linux issue.
 Version 0.3.0 - 2025-05-07 - Add version 1 of temperature downscaling for testing
 Version 0.2.0 - 2025-04-29 - Changed precipitation downscaling to use 30 day sum for scaling.
