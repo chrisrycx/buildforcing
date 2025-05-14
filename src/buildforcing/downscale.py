@@ -202,7 +202,7 @@ def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: p
 
     return nldas_hourly['downscaled']
 
-def partitionPrecip(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
+def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''
     Partition precipitation into rain and snow.
     V0: Just partition if Tair >= 0 C, else snow.

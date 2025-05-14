@@ -241,14 +241,16 @@ class siteForcings:
                 ):
         self.site_name = site_name
         self.start_date = start_date
-        self.end_date = end_date
+
+        # Set end date to be last hour of the day to be consistent with NLDAS
+        self.end_date = end_date + pd.DateOffset(hours=23)
         self.latitude = latitude
         self.longitude = longitude
         self.reference_height = reference_height
         self.canopy_height = 0.0
 
         # Initialize data and metadata
-        dfindex = pd.date_range(start_date, end_date, freq='h',tz='UTC') # hourly index
+        dfindex = pd.date_range(self.start_date, self.end_date, freq='h',tz='UTC') # hourly index
         self.forcings = pd.DataFrame(index=dfindex)
         self.forcings.index.name = 'time'
 

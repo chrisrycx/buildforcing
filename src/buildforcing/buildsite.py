@@ -3,119 +3,119 @@ The main entry point for the buildforcing package. This package is used to build
 '''
 from datetime import datetime
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
-from buildforcing.downscale import downscaleTairV1, downscalePrecip, partitionPrecip
+from buildforcing.downscale import partitionPrecipV0
 import os
 import xarray as xr
 import pandas as pd
+from typing import Callable
 
-def findUsableDates(snotel: PNNLSnotel) -> tuple[datetime, datetime]:
+def raw_nldas(nldas_data: pd.Series, *args):
     '''
-    Determine what date range is usable for the forcing data based on the snotel data.
-    Depending on the downscaling method, this may change.
+    Just a passthru function that accepts a variable number of arguments.
+    This will be the default function for downscaling that will just pass the data through when
+    another function has not been specified.
+    '''
+    print(f'Using raw NLDAS data for {nldas_data.name}')
+    
+    return nldas_data
+
+class SiteBuilder:
+    '''
+    Class for building forcing data for a site.
     '''
 
-    # Find the first date in the index where the 'T_max_C', 'T_min_C', and 'precip_mm' columns are not NaN
-    good_index: pd.DatetimeIndex = snotel.data.index[snotel.data['T_max_C'].notna() & snotel.data['T_min_C'].notna() & snotel.data['precip_mm'].notna()]
-    
-    # There should probably be at least 15 days of data to be minimally usable for testing
-    if len(good_index) < 15:
-        raise ValueError(f'Not enough usable data for site {snotel.site_name}. Only {len(good_index)} days of data found.')
-    
-    # Remove timezone information from the index
-    good_index = good_index.tz_localize(None)
-    #good_index = good_index.tz_convert('UTC').tz_localize(None)
-    
-    return (good_index[0].to_pydatetime(), good_index[-1].to_pydatetime())  # Return the first and last date in the index
+    def __init__(self, site_name: str):
+        self.site_name = site_name
+        self.start_date = None
+        self.end_date = None
+        self.snotel = None
+        self.nldas = None
+        self.model_forcings = None
 
-def BuildSite(
-        site_name: str,
-        start_date: datetime = None,
-        end_date: datetime = None
-        ) -> siteForcings:
-    '''
-    Build the forcing data for a site using NLDAS and PNNL Snotel data.
+        # Define default functions for downscaling
+        self.Tair_correction: Callable = raw_nldas
+        self.precip_correction: Callable = raw_nldas
+        self.precip_partition: Callable = partitionPrecipV0
+        self.swrad_correction: Callable = raw_nldas
+        self.lwrad_correction: Callable = raw_nldas
+        self.Qair_correction: Callable = raw_nldas
+        self.Psurf_correction: Callable = raw_nldas
 
-    Parameters
-    ----------
-    site_name : str
-        The name of the site being built.
-    start_date : datetime
-        The start date of the forcing data.
-    end_date : datetime
-        The end date of the forcing data.
-    forcings : list[str]
-        The forcings to build for the site. Should match NLDAS variable names.
+        # Load environment variables
+        self.snotel_storage_path = os.getenv('SNOTEL_PATH')
+        self.nldas_storage_path = os.getenv('NLDAS_PATH')
 
-    Returns
-    -------
-    xarray dataset which matches LM4.1 netCDF format
-    '''
-    # Convert STORAGE_PATH to specified folder
-    snotel_storage_path = os.getenv('SNOTEL_PATH')
-    nldas_storage_path = os.getenv('NLDAS_PATH')
+        if self.snotel_storage_path is None or self.nldas_storage_path is None:
+            raise ValueError('Environment variables SNOTEL_PATH or NLDAS_PATH are not set.')
 
-    # Exit if no environment variable is set
-    if snotel_storage_path is None:
-        raise ValueError('SNOTEL_PATH environment variable not set.')
-    if nldas_storage_path is None:
-        raise ValueError('NLDAS_PATH environment variable not set.')
+        # Load snotel data
+        self.load_snotel_data(self.snotel_storage_path)
 
-    # Load snotel data, this will fail if site doesn't exist
-    snotel = PNNLSnotel(site_name=site_name, storage_path=snotel_storage_path)
-    if not snotel.exists:
-        raise ValueError(f'Site {site_name} does not exist in PNNL Snotel dataset.')
+    def findUsableDates(self) -> tuple[datetime, datetime]:
+        '''
+        Determine what date range is usable for the forcing data based on the snotel data.
+        Depending on the downscaling method, this may change.
+        '''
+        # Find the first date in the index where the 'T_max_C', 'T_min_C', and 'precip_mm' columns are not NaN
+        good_index: pd.DatetimeIndex = self.snotel.data.index[self.snotel.data['T_max_C'].notna() & self.snotel.data['T_min_C'].notna() & self.snotel.data['precip_mm'].notna()]
+        
+        # There should probably be at least 15 days of data to be minimally usable for testing
+        if len(good_index) < 15:
+            raise ValueError(f'Not enough usable data for site {self.snotel.site_name}. Only {len(good_index)} days of data found.')
+        
+        # Remove timezone information from the index
+        good_index = good_index.tz_localize(None)
+        #good_index = good_index.tz_convert('UTC').tz_localize(None)
+        
+        return (good_index[0].to_pydatetime(), good_index[-1].to_pydatetime())  # Return the first and last date in the index
 
-    # If start and end date not specified, use snotel start and end date
-    if start_date is None:
-        start_date = snotel.start_date
-    if end_date is None:
-        end_date = snotel.end_date
-    
-    # Assess the date range of the snotel data
-    usable_snotel_start_date, usable_snotel_end_date = findUsableDates(snotel)
+    def load_snotel_data(self, storage_path: str):
+        self.snotel = PNNLSnotel(site_name=self.site_name, storage_path=storage_path)
+        if not self.snotel.exists:
+            raise ValueError(f'Site {self.site_name} does not exist in PNNL Snotel dataset.')
 
-    # Ensure date range does not exceed snotel data range
-    # Use snotel start and end date if date range exceeds snotel data range
-    if start_date is not None and end_date is not None:
-        if start_date < usable_snotel_start_date:
-            print(f'Start date {start_date} is before usable snotel start date {usable_snotel_start_date}. Updating start date.')
-            start_date = usable_snotel_start_date
-        if end_date > usable_snotel_end_date:
-            print(f'End date {end_date} is after usable snotel end date {usable_snotel_end_date}. Updating end date.')
-            end_date = usable_snotel_end_date
+    def load_nldas_data(self, storage_path: str):
+        # Load NLDAS data, locally if possible
+        self.nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, self.start_date, self.end_date)
+        try:
+            self.nldas.loadNetCDF(storage_path)
+        except FileNotFoundError:
+            self.nldas.getdata()
+            self.nldas.saveNetCDF(storage_path)
+        
+    def build(self, start_date: datetime, end_date: datetime):
+        
+        # Load nldas data
+        self.start_date = start_date
+        self.end_date = end_date
+        self.load_nldas_data(self.nldas_storage_path)
 
-    # Load NLDAS data, locally if possible
-    # Forcings 'LWdown','Psurf','Qair','Rainf','SWdown','Tair','Wind_E','Wind_N'
-    nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date, end_date)
+        # Initialize forcings
+        self.model_forcings = siteForcings(self.site_name, self.start_date, self.end_date, self.snotel.latitude, self.snotel.longitude, 10)
 
-    try:
-        nldas.loadNetCDF(nldas_storage_path)
-    except FileNotFoundError:
-        nldas.getdata()
-        nldas.saveNetCDF(nldas_storage_path)
+        # Corrections/Downscaling
+        Tair_corrected = self.Tair_correction(self.nldas.data['Tair'], self.snotel.data['T_max_C'], self.snotel.data['T_min_C'])
+        Qair_corrected = self.Qair_correction(self.nldas.data['Qair'], Tair_corrected)
+        Psurf_corrected = self.Psurf_correction(self.nldas.data['PSurf'])
+        swrad_corrected = self.swrad_correction(self.nldas.data['SWdown'])
+        lwrad_corrected = self.lwrad_correction(self.nldas.data['LWdown'])
+        precip_corrected = self.precip_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
+        precip_partitioned = self.precip_partition(precip_corrected, Tair_corrected)
 
-    # Initialize the dataset
-    model_forcings = siteForcings(site_name, start_date, end_date, snotel.latitude, snotel.longitude, 10)
+        # Create a string describing precip processing
+        precip_processing = f'Correction: {self.precip_correction.__name__} Partition: {self.precip_partition.__name__}'
 
-    # -- Downscale the NLDAS data to create model forcings: 'LWdown','Psurf','Qair','Rainf','Snowf','SWdown','Tair','Wind'
-    print('Warning: forcing conversion not yet implemented correctly for Qair and Wind.')
-    model_forcings.setForcing('LWdown','W/m2', 'Raw LW down', nldas.data.LWdown, 10)
-    model_forcings.setForcing('SWdown','W/m2','Raw SW down', nldas.data.SWdown, 10)
-    model_forcings.setForcing('Psurf','Pa', 'Raw P surf', nldas.data.PSurf, 10)
-    model_forcings.setForcing('Qair','kg/kg', 'Raw Qair', nldas.data.Qair, 10)
-    
-    # Downscale temperature and use for partition precipitation
-    Tair_corrected = downscaleTairV1(nldas.data.Tair, snotel.data.T_max_C, snotel.data.T_min_C)
-    precip_corrected = downscalePrecip(nldas.data.Rainf, snotel.data.precip_mm)
-    precip_partitioned = partitionPrecip(precip_corrected, Tair_corrected)
+        # Combine wind components
+        nldas_wind = (self.nldas.data.Wind_N**2 + self.nldas.data.Wind_E**2)**0.5
 
-    model_forcings.setForcing('Tair','K', 'downscaleTair', Tair_corrected, 10)
-    model_forcings.setForcing('Rainf','kg/m2/s','partition v0', precip_partitioned['rain_mm']/3600, 10)  # Need rainfall rate kg/m2/s
-    model_forcings.setForcing('Snowf','kg/m2/s','partition v0', precip_partitioned['snow_mm']/3600, 10)  # Need snowfall rate kg/m2/s
-    
-    # Combine wind components
-    nldas_wind = nldas.data.Wind_N**2 + nldas.data.Wind_E**2
-    nldas_wind = nldas_wind**0.5
-    model_forcings.setForcing('Wind', 'm/s','Raw Wind', nldas_wind, 10)
+        # Set forcings
+        self.model_forcings.setForcing('Tair', 'K', self.Tair_correction.__name__, Tair_corrected, 10)
+        self.model_forcings.setForcing('Qair', 'kg/kg', self.Qair_correction.__name__, Qair_corrected, 10)
+        self.model_forcings.setForcing('Psurf', 'Pa', self.Psurf_correction.__name__, Psurf_corrected, 10)
+        self.model_forcings.setForcing('Rainf', 'kg/m2/s', precip_processing, precip_partitioned['rain_mm'] / 3600, 10)
+        self.model_forcings.setForcing('Snowf', 'kg/m2/s', precip_processing, precip_partitioned['snow_mm'] / 3600, 10)
+        self.model_forcings.setForcing('SWdown', 'W/m2', self.swrad_correction.__name__, swrad_corrected, 10)
+        self.model_forcings.setForcing('LWdown', 'W/m2', self.lwrad_correction.__name__, lwrad_corrected, 10)
+        self.model_forcings.setForcing('Wind', 'm/s', 'Raw Wind', nldas_wind, 10)
 
-    return model_forcings
+        return self.model_forcings
