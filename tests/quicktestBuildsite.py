@@ -16,7 +16,7 @@ end_date = datetime(2016, 10, 1)
 forcing_builder = SiteBuilder(site_name)
 
 # Test setting correction to something other than raw_nldas
-forcing_builder.Tair_correction = downscaleTairV1
+#forcing_builder.Tair_correction = downscaleTairV1
 
 # Check if date range is valid
 valid_start_date, valid_end_date = forcing_builder.findUsableDates()
@@ -34,5 +34,5 @@ if start_date < valid_start_date or end_date > valid_end_date:
 forcings = forcing_builder.build(start_date, end_date)
 
 forcing_storage_path: str = os.getenv('FORCING_PATH') # type: ignore
-file_name = f'{site_name.replace(" ","").lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_v{buildforcing_version}.nc'
+file_name = f'{site_name.replace(" ","").lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_s00000000_v{buildforcing_version}.nc'
 forcings.saveNetCDF(os.path.join(forcing_storage_path,file_name))
