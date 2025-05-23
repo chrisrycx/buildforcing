@@ -8,9 +8,9 @@ from datetime import datetime
 
 buildforcing_version = '0.4.0'  #Specify manually since project toml doesn't change
 
-site_name = 'Tony Grove RS'
-start_date = datetime(2015, 10, 1)
-end_date = datetime(2016, 10, 1)
+site_name = 'Quemazon'
+start_date = datetime(1980, 10, 1)
+end_date = datetime(2025, 10, 1)
 
 # Create site builder for the specified site
 forcing_builder = SiteBuilder(site_name)
@@ -25,9 +25,11 @@ valid_start_date, valid_end_date = forcing_builder.findUsableDates()
 print(f'Valid date range for {site_name}: {valid_start_date} to {valid_end_date}')
 
 # Calculate custom date range
-if start_date < valid_start_date or end_date > valid_end_date:
-    print(f'Custom date range {start_date} to {end_date} is not valid. Using valid date range instead.')
+if start_date < valid_start_date:
+    print(f'Entered start date {start_date} is not valid. Using {valid_start_date} instead.')
     start_date = valid_start_date
+if end_date > valid_end_date:
+    print(f'Entered end date {end_date} is not valid. Using {valid_end_date} instead.')
     end_date = valid_end_date
 
 # Build the forcing data
