@@ -14,6 +14,26 @@ print(f"Inspecting netCDF file: {file_path}")
 
 ds = Dataset(file_path, 'r')
 
+# ...existing code...
+
+# Inspect the time variable
+time_var_name = None
+for var_name, var in ds.variables.items():
+    if 'time' in var_name.lower():  # Look for a variable likely representing time
+        time_var_name = var_name
+        print(f"\nTime variable: {time_var_name}")
+        print(f"    Dimensions: {', '.join(var.dimensions)}")
+        print(f"    Data type: {var.dtype}")
+        for attr_name in var.ncattrs():
+            attr_value = getattr(var, attr_name)
+            print(f"        {time_var_name}:{attr_name} = {attr_value} ;")
+        break
+
+if not time_var_name:
+    print("\nNo time variable found in the netCDF file.")
+
+# ...existing code...
+
 # Print dimensions
 print("dimensions:")
 for dim_name, dim in ds.dimensions.items():

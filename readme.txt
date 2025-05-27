@@ -1,4 +1,5 @@
 Version History:
+Version 0.4.2 - 2025-05-27 - Try exporting to julian calendar
 Version 0.4.1 - 2025-05-23 - Improved request to NLDAS API, now has retries and chunking to prevent no data being returned.
 Version 0.4.0 - 2025-05-19 - Changed buildforcing to a class.
 Version 0.3.2 - 2025-05-09 - Fixed problem if snotel does not contain usable data for specified time range.

@@ -390,7 +390,7 @@ class siteForcings:
         This requires some special encodings to match the target format.
         '''
         ds = self.exportDataset()
-        time_encoding = {'calendar': 'gregorian','units': 'hours since 1900-01-01 06:59:56'}
+        time_encoding = {'calendar': 'julian','units': 'hours since 1900-01-01 00:00:00'}
 
         # Save
         ds.to_netcdf(storage_path, encoding={'time': time_encoding}, format='NETCDF4', engine='netcdf4',unlimited_dims=['time'])

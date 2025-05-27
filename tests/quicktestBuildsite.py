@@ -6,7 +6,7 @@ from buildforcing.buildsite import SiteBuilder
 from buildforcing.downscale import downscaleTairV1
 from datetime import datetime
 
-buildforcing_version = '0.4.0'  #Specify manually since project toml doesn't change
+buildforcing_version = '0.4.1'  #Specify manually since project toml doesn't change
 
 site_name = 'Quemazon'
 start_date = datetime(1980, 10, 1)
