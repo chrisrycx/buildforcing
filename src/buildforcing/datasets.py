@@ -390,7 +390,7 @@ class siteForcings:
         This requires some special encodings to match the target format.
         '''
         ds = self.exportDataset()
-        time_encoding = {'units': 'hours since 1900-01-01 00:00:00'} #This will default to a 'proleptic_gregorian' calendar
+        time_encoding = {'calendar':'gregorian', 'units': 'hours since 1900-01-01 00:00:00'} #This will default to a 'proleptic_gregorian' calendar
         
         # Save
         ds.to_netcdf(storage_path, encoding={'time': time_encoding}, format='NETCDF4', engine='netcdf4',unlimited_dims=['time'])
