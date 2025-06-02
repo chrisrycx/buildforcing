@@ -6,17 +6,15 @@ from buildforcing.buildsite import SiteBuilder
 from buildforcing.downscale import downscaleTairV1
 from datetime import datetime
 
-buildforcing_version = '0.4.2'  #Specify manually since project toml doesn't change
+buildforcing_version = '0.4.4'  #Specify manually since project toml doesn't change
 
 site_name = 'Tony Grove RS'
-start_date = datetime(2009, 10, 1)
-end_date = datetime(2021, 9, 30)
+start_date = datetime(2015, 10, 1)
+end_date = datetime(2016, 10, 1)
 
 # Create site builder for the specified site
-forcing_builder = SiteBuilder(site_name)
-
-# Test setting correction to something other than raw_nldas
-#forcing_builder.Tair_correction = downscaleTairV1
+build_settings = '00000010'  
+forcing_builder = SiteBuilder(site_name, settings_str=build_settings)
 
 # Check if date range is valid
 valid_start_date, valid_end_date = forcing_builder.findUsableDates()
@@ -36,5 +34,5 @@ if end_date > valid_end_date:
 forcings = forcing_builder.build(start_date, end_date)
 
 forcing_storage_path: str = os.getenv('FORCING_PATH') # type: ignore
-file_name = f'{site_name.replace(" ","").lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_s00000000_v{buildforcing_version}.nc'
+file_name = f'{site_name.replace(" ","").lower()}_{start_date.strftime("%Y%m%d")}_{end_date.strftime("%Y%m%d")}_s{build_settings}_v{buildforcing_version}.nc'
 forcings.saveNetCDF(os.path.join(forcing_storage_path,site_name.replace(" ","").lower(),file_name))

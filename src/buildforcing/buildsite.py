@@ -3,28 +3,19 @@ The main entry point for the buildforcing package. This package is used to build
 '''
 from datetime import datetime
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
-from buildforcing.downscale import partitionPrecipV0
+from buildforcing.downscale import getDownscaleFunction
 import os
 import xarray as xr
 import pandas as pd
 from typing import Callable
 
-def raw_nldas(nldas_data: pd.Series, *args):
-    '''
-    Just a passthru function that accepts a variable number of arguments.
-    This will be the default function for downscaling that will just pass the data through when
-    another function has not been specified.
-    '''
-    print(f'Using raw NLDAS data for {nldas_data.name}')
-    
-    return nldas_data
 
 class SiteBuilder:
     '''
     Class for building forcing data for a site.
     '''
 
-    def __init__(self, site_name: str):
+    def __init__(self, site_name: str, settings_str: str = '00000000'):
         self.site_name = site_name
         self.start_date = None
         self.end_date = None
@@ -32,14 +23,30 @@ class SiteBuilder:
         self.nldas = None
         self.model_forcings = None
 
+        # Parse settings string - It should be 8 characters long, each character representing the version of the downscaling method to use.
+        # Settings are associated with variables in alphabetical order
+        if len(settings_str) != 8:
+            raise ValueError('Settings string must be 8 characters long.')
+        self.settings = {
+            'LWdown': int(settings_str[0]),
+            'Psurf': int(settings_str[1]),
+            'Qair': int(settings_str[2]),
+            'Rainf': int(settings_str[3]),
+            'Snowf': int(settings_str[4]),
+            'SWdown': int(settings_str[5]),
+            'Tair': int(settings_str[6]),
+            'Wind': int(settings_str[7])
+        }
+
         # Define default functions for downscaling
-        self.Tair_correction: Callable = raw_nldas
-        self.precip_correction: Callable = raw_nldas
-        self.precip_partition: Callable = partitionPrecipV0
-        self.swrad_correction: Callable = raw_nldas
-        self.lwrad_correction: Callable = raw_nldas
-        self.Qair_correction: Callable = raw_nldas
-        self.Psurf_correction: Callable = raw_nldas
+        self.Tair_correction: Callable = getDownscaleFunction('Tair', self.settings['Tair'])
+        self.Rainf_correction: Callable = getDownscaleFunction('Rainf', self.settings['Rainf'])
+        self.precip_partition: Callable = getDownscaleFunction('precip_partition', self.settings['Snowf']) # This is a bit confusing, but partitioning is done to determine Snowf
+        self.swrad_correction: Callable = getDownscaleFunction('SWdown', self.settings['SWdown'])
+        self.lwrad_correction: Callable = getDownscaleFunction('LWdown', self.settings['LWdown'])
+        self.Qair_correction: Callable = getDownscaleFunction('Qair', self.settings['Qair'])
+        self.Psurf_correction: Callable = getDownscaleFunction('Psurf', self.settings['Psurf'])
+        self.Wind_correction: Callable = getDownscaleFunction('Wind', self.settings['Wind'])
 
         # Load environment variables
         self.snotel_storage_path = os.getenv('SNOTEL_PATH')
@@ -99,11 +106,11 @@ class SiteBuilder:
         Psurf_corrected = self.Psurf_correction(self.nldas.data['PSurf'])
         swrad_corrected = self.swrad_correction(self.nldas.data['SWdown'])
         lwrad_corrected = self.lwrad_correction(self.nldas.data['LWdown'])
-        precip_corrected = self.precip_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
+        precip_corrected = self.Rainf_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
         precip_partitioned = self.precip_partition(precip_corrected, Tair_corrected)
 
         # Create a string describing precip processing
-        precip_processing = f'Correction: {self.precip_correction.__name__} Partition: {self.precip_partition.__name__}'
+        precip_processing = f'Correction: {self.Rainf_correction.__name__} Partition: {self.precip_partition.__name__}'
 
         # Combine wind components
         nldas_wind = (self.nldas.data.Wind_N**2 + self.nldas.data.Wind_E**2)**0.5

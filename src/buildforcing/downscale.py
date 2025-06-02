@@ -3,6 +3,15 @@ Functions used to downscale NLDAS data for use with point modeling.
 '''
 import pandas as pd
 
+def raw_nldas(nldas_data: pd.Series, *args):
+    '''
+    Just a passthru function that accepts a variable number of arguments.
+    This will be the default function for downscaling that will just pass the data through when
+    another function has not been specified.
+    '''
+    print(f'Using raw NLDAS data for {nldas_data.name}')
+    
+    return nldas_data
 
 def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
     '''
@@ -133,7 +142,7 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     return nldas_Tair_K_downscaled
 
-def downscalePrecip(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
+def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
     '''
     Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
     Due to differences in precipitation timing between NLDAS and snotel, the correction is based on the monthly
@@ -227,5 +236,45 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     data['snow_mm'] = data['precip_mm'].where(data['Tair_C'] < 0, 0)
 
     return data[['rain_mm', 'snow_mm']]
+
+def getDownscaleFunction(variable_name: str, version: int = 0) -> callable:
+    '''
+    Get the downscaling function for a given variable name and version.
+    Args:
+        variable_name (str): The name of the variable to downscale (e.g., 'Tair', 'precip').
+        version (int): The version of the downscaling function to use. Defaults to 0.
+    '''
+    downscale_functions = {
+        'Tair': {
+            0: raw_nldas,
+            1: downscaleTairV1,
+        },
+        'Rainf': {
+            0: raw_nldas,  # No downscaling for Rainf, just pass through
+            1: downscalePrecipV1,  # Downscale precipitation using the V1 method
+        },
+        'precip_partition': {
+            0: partitionPrecipV0,  # Partition precipitation using the V0 method
+        },
+        'LWdown': {
+            0: raw_nldas,  # No downscaling for LWdown, just pass through
+        },
+        'SWdown': {
+            0: raw_nldas,  # No downscaling for SWdown, just pass through
+        },
+        'Qair': {
+            0: raw_nldas,  # No downscaling for Qair, just pass through
+        },
+        'Psurf': {
+            0: raw_nldas,  # No downscaling for Psurf, just pass through
+        },
+        'Wind': {
+            0: raw_nldas,  # No downscaling for Wind, just pass through
+        }
+    }
+    if variable_name not in downscale_functions:
+        raise ValueError(f"No downscaling function defined for variable '{variable_name}'")
+    
+    return downscale_functions[variable_name].get(version, raw_nldas)
 
 
