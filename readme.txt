@@ -1,4 +1,5 @@
 Version History:
+Version 0.4.4 - 2025-06-04 - Implemented setting string for buildsite
 Version 0.4.3 - 2025-05-28 - Remove netCDF calendar encoding. Now will default to proleptic Gregorian calendar.
 Version 0.4.2 - 2025-05-27 - Try exporting to julian calendar
 Version 0.4.1 - 2025-05-23 - Improved request to NLDAS API, now has retries and chunking to prevent no data being returned.

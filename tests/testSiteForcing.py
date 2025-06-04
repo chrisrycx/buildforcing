@@ -14,14 +14,14 @@ class TestSiteForcings(unittest.TestCase):
     def setUp(self):
         # Create the target xarray Dataset for testing
         # Create dummy coordinates
-        times = pd.date_range("2023-01-01", periods=5, freq="h")
+        times = pd.date_range("2023-01-01", periods=24, freq="h")
         latitude = [35.0]
         longitude = [-104.5]
         ref_height = [[10.0]]
 
         # Create dummy data
-        Tair_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
-        Qair_data = np.array([1, 2, 3, 4, 5]).reshape(5,1,1)
+        Tair_data = np.array([1, 2, 3, 4]*6).reshape(24,1,1)
+        Qair_data = np.array([1, 2, 3, 4]*6).reshape(24,1,1)
 
         # Assign data to the xarray Dataset
         self.target = xr.Dataset(
@@ -65,11 +65,12 @@ class TestSiteForcings(unittest.TestCase):
         Test creating and adding data to a SiteForcing object
         '''
         # Create a SiteForcing object
-        site = siteForcings("test_site", datetime(2023,1,1,0), datetime(2023,1,1,4), 35.0, -104.5)
+        # Note that siteforcings is set up to create an hourly date range from starting date to ending date hour 23
+        site = siteForcings("test_site", datetime(2023,1,1), datetime(2023,1,1), 35.0, -104.5)
 
         # Create some dummy forcing
-        forcing1 = pd.Series([1, 2, 3, 4, 5], index=pd.date_range("2023-01-01", periods=5, freq="h", tz="UTC"))
-        forcing2 = pd.Series([1, 2, 3, 4, 5], index=pd.date_range("2023-01-01", periods=5, freq="h", tz="UTC"))
+        forcing1 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
+        forcing2 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
 
         # Add the forcing to the SiteForcing object
         site.setForcing("Tair", "K", "test", forcing1, reference_height=10.0)

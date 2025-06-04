@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
-from buildforcing.downscale import downscaleTairV1, downscaleTairV0, downscalePrecip, partitionPrecip
+from buildforcing.downscale import downscaleTairV1, downscaleTairV0, downscalePrecipV1, partitionPrecipV0
 
 @unittest.skip('Older version will be removed')
 class TestDownscaleTairV0(unittest.TestCase):
@@ -155,7 +155,7 @@ class TestDownscaleTairV1(unittest.TestCase):
         for i in range(len(result)):
             self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
 
-class TestDownscalePrecip(unittest.TestCase):
+class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
         # Create a dummy precipitation dataset (4 days with hourly data)
         self.precip_mm = pd.Series(
@@ -177,7 +177,7 @@ class TestDownscalePrecip(unittest.TestCase):
         Basic test of the downscaling function.
         '''
         # By my calculation, the first day total precip should be 60 
-        rescaled = downscalePrecip(self.precip_mm, self.snotel_mm)
+        rescaled = downscalePrecipV1(self.precip_mm, self.snotel_mm)
 
         # Assert the result is a pandas Series
         self.assertIsInstance(rescaled, pd.Series)
@@ -196,7 +196,7 @@ class TestDownscalePrecip(unittest.TestCase):
         '''
         print("Need to implement this test")
 
-class TestPartitionPrecip(unittest.TestCase):
+class TestpartitionPrecipV0(unittest.TestCase):
     def setUp(self):
         # Create a dummy precipitation dataset (4 days with hourly data)
         self.precip_mm = pd.Series(
@@ -212,7 +212,7 @@ class TestPartitionPrecip(unittest.TestCase):
             index=pd.date_range("2023-01-01 00:00", periods=16, freq="6h", tz="UTC")
         )
 
-    def test_partitionPrecip(self):
+    def test_partitionPrecipV0(self):
         '''
         Test the partitioning of precipitation data based on temperature thresholds.
         '''
@@ -221,7 +221,7 @@ class TestPartitionPrecip(unittest.TestCase):
         expected_rain = np.array([1, 2, 0, 4, 5, 6, 7, 0] * 2)
         
         # Call the function
-        precip_partitioned = partitionPrecip(self.precip_mm, self.temps_K)
+        precip_partitioned = partitionPrecipV0(self.precip_mm, self.temps_K)
         rain = precip_partitioned['rain_mm']
         snow = precip_partitioned['snow_mm']
 
