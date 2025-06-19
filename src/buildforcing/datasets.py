@@ -235,6 +235,7 @@ class siteNLDAS():
         # Convert the xarray dataset to a pandas dataframe
         self.data = ds.to_dataframe()
         self.data.index = self.data.index.tz_localize('UTC')
+        ds.close()
 
     def saveNetCDF(self, storage_path: str):
         '''
@@ -251,6 +252,7 @@ class siteNLDAS():
         data_notz.index = data_notz.index.tz_localize(None)
         ds = xr.Dataset.from_dataframe(data_notz)
         ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
+        ds.close()
 
 class ForcingMetadata:
     '''
