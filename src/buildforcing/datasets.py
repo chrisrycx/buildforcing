@@ -23,6 +23,7 @@ class SnotelData(TypedDict):
 class PNNLSnotel:
     '''
     Class to store and manipulate the PNNL Snotel data.
+    Does not load data by default so that the metadata can be used without needing to load the data.
     '''
     
     def __init__(self, site_name: str, storage_path: str):
@@ -33,13 +34,9 @@ class PNNLSnotel:
         self.PNNL_DATA_PATH = os.path.join(storage_path, 'bcqc_data_v2')
 
         # Load the metadata and associated data
-        self.exists = self.load_metadata()
-        
-        if self.exists:
-            self.timezone = self.get_timezone()
-            self.load_data()
+        self.load_metadata()
+        self.timezone = self.get_timezone()
             
-
     def load_metadata(self):
         '''
         Load the metadata for the PNNL Snotel data.
@@ -63,7 +60,8 @@ class PNNLSnotel:
                     self.start_date: datetime = datetime.strptime(column_values[7], '%m/%d/%Y')
                     self.end_date: datetime = datetime.strptime(column_values[8], '%m/%d/%Y')
         
-        return site_match
+        if not site_match:
+            raise ValueError(f"Site name {self.site_name} not found in the PNNL Snotel metadata file.")
     
     def load_data(self):
 
@@ -188,7 +186,6 @@ class siteNLDAS():
 
         return nldas_data
 
-
     def getdata(self):
         '''
         Get the data for all forcings. This will also split the request into multiple requests if the date range is too large.
@@ -218,6 +215,28 @@ class siteNLDAS():
             # Add the forcing data to the dataframe
             self.data[forcing_name] = forcing_series
 
+    def findNetCDF(self, storage_path: str) -> str | None:
+        '''
+        Find the NLDAS data file in the storage path with dates that are equal to or greater than the start date and less than or equal to the end date.
+        The file follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
+        With dates: YYYYMMDD
+        '''
+        file_list = os.listdir(storage_path)
+
+        # Check the start and end dates for each file
+        for file_name in file_list:
+            if file_name.startswith(f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_'):
+                # Extract the start and end dates from the file name
+                date_parts = file_name[:-3].split('_')[3:5]
+                file_start_date = pd.to_datetime(date_parts[0], format='%Y%m%d')
+                file_end_date = pd.to_datetime(date_parts[1], format='%Y%m%d')
+
+                # Check if the file's date range overlaps with the desired date range
+                if file_start_date <= self.start_date and file_end_date >= self.end_date:
+                    return file_name
+        
+        # If no file is found, return None
+        return None
 
     def loadNetCDF(self, storage_path: str):
         '''
@@ -226,7 +245,10 @@ class siteNLDAS():
         With dates: YYYYMMDD
         Latitude and longitude to 2 decimal places.
         '''
-        file_name = f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
+        file_name = self.findNetCDF(storage_path)
+        if file_name is None:
+            raise ValueError(f"No NLDAS data file found for the specified latitude, longitude, and date range in {storage_path}")
+        
         file_path = os.path.join(storage_path, file_name)
 
         # Open the dataset, this will fail if the file doesn't exist
@@ -234,7 +256,9 @@ class siteNLDAS():
 
         # Convert the xarray dataset to a pandas dataframe
         self.data = ds.to_dataframe()
+        self.data = self.data.loc[self.start_date:self.end_date]  # Limit the data to the specified date range
         self.data.index = self.data.index.tz_localize('UTC')
+
         ds.close()
 
     def saveNetCDF(self, storage_path: str):

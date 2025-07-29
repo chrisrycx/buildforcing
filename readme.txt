@@ -1,4 +1,5 @@
 Version History:
+Version 0.4.5 - 2025-07-29 - Changed PNNLSnotel to use siteNLDAS so that snotel doesn't load data by default and nldas looks for existing files encompassing the date range.
 Version 0.4.4 - 2025-06-04 - Implemented setting string for buildsite
 Version 0.4.3 - 2025-05-28 - Remove netCDF calendar encoding. Now will default to proleptic Gregorian calendar.
 Version 0.4.2 - 2025-05-27 - Try exporting to julian calendar
