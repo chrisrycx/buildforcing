@@ -1,5 +1,6 @@
 Version History:
-Version 0.4.6 - 2025-07-30 - Fixed bug in PNNLSnotel where it was not loading data correctly.
+Version 0.5.0 - 2025-07-30 - Multiple changes to how dates are handled so that both snotel and nldas date ranges are as expected.
+Version 0.4.6 - 2025-07-30 - Fixed bug in PNNLSnotel where it was not loading data correctly. Also changed how dates are handled in nldas and site forcings.
 Version 0.4.5 - 2025-07-29 - Changed PNNLSnotel to use siteNLDAS so that snotel doesn't load data by default and nldas looks for existing files encompassing the date range.
 Version 0.4.4 - 2025-06-04 - Implemented setting string for buildsite
 Version 0.4.3 - 2025-05-28 - Remove netCDF calendar encoding. Now will default to proleptic Gregorian calendar.

@@ -19,7 +19,7 @@ class SiteBuilder:
         self.site_name = site_name
         self.start_date = None
         self.end_date = None
-        self.snotel = None
+        self.snotel: PNNLSnotel
         self.nldas = None
         self.model_forcings = None
 
@@ -61,20 +61,9 @@ class SiteBuilder:
     def findUsableDates(self) -> tuple[datetime, datetime]:
         '''
         Determine what date range is usable for the forcing data based on the snotel data.
-        Depending on the downscaling method, this may change.
+        Wrapper so this can be used in different contexts.
         '''
-        # Find the first date in the index where the 'T_max_C', 'T_min_C', and 'precip_mm' columns are not NaN
-        good_index: pd.DatetimeIndex = self.snotel.data.index[self.snotel.data['T_max_C'].notna() & self.snotel.data['T_min_C'].notna() & self.snotel.data['precip_mm'].notna()]
-        
-        # There should probably be at least 15 days of data to be minimally usable for testing
-        if len(good_index) < 15:
-            raise ValueError(f'Not enough usable data for site {self.snotel.site_name}. Only {len(good_index)} days of data found.')
-        
-        # Remove timezone information from the index
-        good_index = good_index.tz_localize(None)
-        #good_index = good_index.tz_convert('UTC').tz_localize(None)
-        
-        return (good_index[0].to_pydatetime(), good_index[-1].to_pydatetime())  # Return the first and last date in the index
+        return self.snotel.find_usable_dates()
 
     def load_snotel_data(self, storage_path: str):
         self.snotel = PNNLSnotel(site_name=self.site_name, storage_path=storage_path)

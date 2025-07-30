@@ -103,6 +103,24 @@ class PNNLSnotel:
         # Use the timezonefinder package to get the timezone for the site
         tf = TimezoneFinder()
         return tf.timezone_at(lng=self.longitude, lat=self.latitude)
+    
+    def find_usable_dates(self) -> tuple[date, date]:
+        '''
+        Determine what date range is usable for the snotel data.
+        
+        Returns: Dates (associated with local timezone) of the first and last day with usable data.
+        '''
+        if self.data.empty:
+            raise ValueError(f"No data loaded for site {self.site_name}. Please load the data first.")
+
+        # Find the first date in the index where the 'T_max_C', 'T_min_C', and 'precip_mm' columns are not NaN
+        good_index: pd.DatetimeIndex = self.data.index[self.data['T_max_C'].notna() & self.data['T_min_C'].notna() & self.data['precip_mm'].notna()]
+        
+        # There should probably be at least 15 days of data to be minimally usable for testing
+        if len(good_index) < 15:
+            raise ValueError(f'Not enough usable data for site {self.site_name}. Only {len(good_index)} days of data found.')
+
+        return (good_index[0].to_pydatetime().date(), good_index[-1].to_pydatetime().date())
 
 class siteNLDAS():
     '''
@@ -210,7 +228,7 @@ class siteNLDAS():
                     forcing_series = pd.concat([forcing_series, new_forcing_series])
 
                 # Update the start date for the next request
-                next_start_date = next_start_date + pd.DateOffset(years=chunk_size, days=1)
+                next_start_date = next_start_date + pd.DateOffset(years=chunk_size, hours=1)
 
             # Add the forcing data to the dataframe
             self.data[forcing_name] = forcing_series
