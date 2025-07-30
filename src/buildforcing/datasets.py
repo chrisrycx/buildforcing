@@ -148,13 +148,13 @@ class siteNLDAS():
         if (request_end_date - request_start_date).days > 365 * 21:
             raise ValueError(f"Date range is too large. Maximum is 20 years. Requested: {request_start_date} to {request_end_date}")
 
-        print(f"Downloading {forcing_name} data from {request_start_date: %Y-%m-%d} to {request_end_date: %Y-%m-%d}")
-                             
+        print(f"Downloading {forcing_name} data from {request_start_date: %Y-%m-%d %H:00} to {request_end_date: %Y-%m-%d %H:00}")
+
         # Download the data
         params = {
             'variable': f'NLDAS2:NLDAS_FORA0125_H_v2.0:{forcing_name}',
-            'startDate': request_start_date.strftime('%Y-%m-%dT00'),
-            'endDate': request_end_date.strftime('%Y-%m-%dT23'),
+            'startDate': request_start_date.strftime('%Y-%m-%dT%H'),
+            'endDate': request_end_date.strftime('%Y-%m-%dT%H'),
             'location': f'GEOM:POINT({self.longitude:.2f}, {self.latitude:.2f})',
             'type': 'asc2'
         }
@@ -318,9 +318,9 @@ class siteForcings:
                 ):
         self.site_name = site_name
         self.start_date = start_date
+        self.end_date = end_date
 
         # Set end date to be last hour of the day to be consistent with NLDAS
-        self.end_date = end_date + pd.DateOffset(hours=23)
         self.latitude = latitude
         self.longitude = longitude
         self.reference_height = reference_height

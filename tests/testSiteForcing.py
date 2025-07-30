@@ -66,7 +66,7 @@ class TestSiteForcings(unittest.TestCase):
         '''
         # Create a SiteForcing object
         # Note that siteforcings is set up to create an hourly date range from starting date to ending date hour 23
-        site = siteForcings("test_site", datetime(2023,1,1), datetime(2023,1,1), 35.0, -104.5)
+        site = siteForcings("test_site", datetime(2023,1,1,0), datetime(2023,1,1,23,0), 35.0, -104.5)
 
         # Create some dummy forcing
         forcing1 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
