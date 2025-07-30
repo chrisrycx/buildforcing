@@ -78,8 +78,7 @@ class SiteBuilder:
 
     def load_snotel_data(self, storage_path: str):
         self.snotel = PNNLSnotel(site_name=self.site_name, storage_path=storage_path)
-        if not self.snotel.exists:
-            raise ValueError(f'Site {self.site_name} does not exist in PNNL Snotel dataset.')
+        self.snotel.load_data()
 
     def load_nldas_data(self, storage_path: str):
         # Load NLDAS data, locally if possible
