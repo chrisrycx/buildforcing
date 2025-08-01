@@ -14,6 +14,7 @@ class SiteBuilder:
     '''
     Class for building forcing data for a site.
     '''
+    settings_order = ['LWdown', 'Psurf', 'Qair', 'Rainf', 'PrecipPartition', 'SWdown', 'Tair', 'Wind']
 
     def __init__(self, site_name: str, settings_str: str = '00000000'):
         self.site_name = site_name
@@ -32,7 +33,7 @@ class SiteBuilder:
             'Psurf': int(settings_str[1]),
             'Qair': int(settings_str[2]),
             'Rainf': int(settings_str[3]),
-            'Snowf': int(settings_str[4]),
+            'PrecipPartition': int(settings_str[4]),
             'SWdown': int(settings_str[5]),
             'Tair': int(settings_str[6]),
             'Wind': int(settings_str[7])
@@ -41,7 +42,7 @@ class SiteBuilder:
         # Define default functions for downscaling
         self.Tair_correction: Callable = getDownscaleFunction('Tair', self.settings['Tair'])
         self.Rainf_correction: Callable = getDownscaleFunction('Rainf', self.settings['Rainf'])
-        self.precip_partition: Callable = getDownscaleFunction('precip_partition', self.settings['Snowf']) # This is a bit confusing, but partitioning is done to determine Snowf
+        self.precip_partition: Callable = getDownscaleFunction('precip_partition', self.settings['PrecipPartition']) # Partitioning is done to determine Snowf
         self.swrad_correction: Callable = getDownscaleFunction('SWdown', self.settings['SWdown'])
         self.lwrad_correction: Callable = getDownscaleFunction('LWdown', self.settings['LWdown'])
         self.Qair_correction: Callable = getDownscaleFunction('Qair', self.settings['Qair'])
