@@ -135,7 +135,6 @@ class TestDownscaleTairV1(unittest.TestCase):
         for i in range(len(result)):
             self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
 
-    @unittest.skip("Skipping test_missingday until I redo expected results")
     def test_missingday(self):
         '''
         Test handling of missing day in SNOTEL data.
@@ -144,7 +143,7 @@ class TestDownscaleTairV1(unittest.TestCase):
         result = downscaleTairV1(self.nldas_Tair_K, self.snotel_Tmax_C, self.snotel_Tmin_C)
 
         # Expected result values
-        expected_temp_C = [0,2,4,2,2,1,4,3.25]+[0.5,2.25,4,1.666,1.333,0,4,3]
+        expected_temp_C = [0,2,4,0,2,1,4,4,0.5,2.25,4,0.5,1.33,0,4,4]
         expected_temp_K = [temp + 273.15 for temp in expected_temp_C]
         expected_result = pd.Series(
             expected_temp_K,
@@ -153,7 +152,19 @@ class TestDownscaleTairV1(unittest.TestCase):
 
         # Assert each value within a tolerance
         for i in range(len(result)):
+            print(f"Result C: {result.iloc[i] - 273.15}, Expected C: {expected_result.iloc[i] - 273.15}")
             self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
+
+    def test_missing2days(self):
+        '''
+        Test handling of two missing days in SNOTEL data.
+        This should throw an error because the I am limiting the interpolation to one day.
+        '''
+        snotel_missing = self.snotel_Tmax_C.copy()
+        snotel_missing.iloc[1] = None
+        with self.assertRaises(ValueError):
+            downscaleTairV1(self.nldas_Tair_K, snotel_missing, self.snotel_Tmin_C)
+
 
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):

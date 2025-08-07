@@ -112,8 +112,13 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     nldas_daily_min.name = 'nldas_daily_min'
 
     # Linearly interpolate any missing values in the snotel data
-    snotel_Tmax_K = snotel_Tmax_K.interpolate()
-    snotel_Tmin_K = snotel_Tmin_K.interpolate()
+    # Limiting to one day to avoid excessive interpolation
+    snotel_Tmax_K = snotel_Tmax_K.interpolate(limit=1)
+    snotel_Tmin_K = snotel_Tmin_K.interpolate(limit=1)
+
+    # Raise error is any remaining NaN values in snotel data
+    if snotel_Tmax_K.isna().any() or snotel_Tmin_K.isna().any():
+        raise ValueError("Remaining NaN values found in Snotel data after interpolation")
 
     # Combine daily values into one dataframe
     daily_data = pd.concat([nldas_daily_max, nldas_daily_min], axis=1)
