@@ -24,7 +24,37 @@ def check_outliers(data: np.ndarray, sigma_threshold: float = 3.0) -> np.ndarray
     lower_limit = median - sigma_threshold * std_dev
     return (data > upper_limit) | (data < lower_limit)
 
-def qc_maxmin_temperatures(df: pd.DataFrame) -> pd.DataFrame:
+def detrend_seasonal_cycle(data: pd.Series) -> np.ndarray:
+    '''
+    Use a best fit sinusoid to detrend seasonal cycle from data.
+    y = B0 + B1*sin(2*pi*t/365) + B2*cos(2*pi*t/365)
+    Input:
+    data (pd.Series): Time series data with a DateTime index.
+    Output:
+    np.ndarray: Detrended data array.
+    '''
+
+    # Ensure data has no missing values
+    data_clean = data.dropna()
+
+    # Get the days since the start of the series
+    t = (data_clean.index - data_clean.index[0]).days.to_numpy()
+    y = data_clean.to_numpy()
+    # Construct the design matrix
+    A = np.vstack([np.ones(len(t)), np.sin(2 * np.pi * t / 365), np.cos(2 * np.pi * t / 365)]).T
+    # Solve for coefficients using least squares
+    coeffs, _, _, _ = np.linalg.lstsq(A, y, rcond=None)
+
+    # Calculate the fitted seasonal cycle on the original data's index
+    t2 = (data.index - data.index[0]).days.to_numpy()
+    A2 = np.vstack([np.ones(len(t2)), np.sin(2 * np.pi * t2 / 365), np.cos(2 * np.pi * t2 / 365)]).T
+    seasonal_cycle = A2 @ coeffs
+
+    # Detrend the data
+    detrended = data.to_numpy() - seasonal_cycle
+    return detrended
+
+def qc_maxmin_temperatures(df: pd.DataFrame, outlier_std: float=3.0) -> pd.DataFrame:
     '''
     Quality control SNOTEL max/min temperature data.
     Expected input DataFrame columns: ['Tmax', 'Tmin'], daily data in local timezone.
@@ -51,8 +81,8 @@ def qc_maxmin_temperatures(df: pd.DataFrame) -> pd.DataFrame:
     df['Tmax_Tmin_inconsistent'] = False
 
     # Check for outliers in Tmax and Tmin
-    df['Tmax_outlier'] = check_outliers(df['Tmax'].to_numpy())
-    df['Tmin_outlier'] = check_outliers(df['Tmin'].to_numpy())
+    df['Tmax_outlier'] = check_outliers(detrend_seasonal_cycle(df['Tmax']), sigma_threshold=outlier_std)
+    df['Tmin_outlier'] = check_outliers(detrend_seasonal_cycle(df['Tmin']), sigma_threshold=outlier_std)
     # Check for inconsistent Tmax/Tmin pairs
     df['Tmax_Tmin_inconsistent'] = df['Tmax'] < df['Tmin']
     # Calculate Diurnal Temperature Range (DTR)
@@ -64,9 +94,11 @@ def qc_maxmin_temperatures(df: pd.DataFrame) -> pd.DataFrame:
     df['Tmax_bad'] = False
     df['Tmin_bad'] = False
     df.loc[df['Tmax_Tmin_inconsistent'], ['Tmax_bad', 'Tmin_bad']] = True # Both bad if inconsistent
-    df.loc[df['Tmax_outlier'] & df['Tmin_outlier'], ['Tmax_bad', 'Tmin_bad']] = True # Both bad if both outliers
-    df.loc[df['Tmax_outlier'] & df['DTR_outlier'], 'Tmax_bad'] = True # Tmax bad if outlier and DTR bad
-    df.loc[df['Tmin_outlier'] & df['DTR_outlier'], 'Tmin_bad'] = True # Tmin bad if outlier and DTR bad
+    df.loc[df['Tmax_outlier'], 'Tmax_bad'] = True
+    df.loc[df['Tmin_outlier'], 'Tmin_bad'] = True
+
+    # DTR should be larger then 3C
+    df.loc[df['DTR'] < 3, ['Tmax_bad', 'Tmin_bad']] = True
 
     return df[['Tmax_bad', 'Tmin_bad']]
 
