@@ -18,8 +18,10 @@ def check_outliers(data: np.ndarray, sigma_threshold: float = 3.0) -> np.ndarray
     Returns:
     np.ndarray: Boolean array where True indicates an outlier.
     '''
-    median = np.median(data)
-    std_dev = np.std(data)
+    # Remove NaN values before calculating statistics
+    data_clean = data[~np.isnan(data)]
+    median = np.median(data_clean)
+    std_dev = np.std(data_clean)
     upper_limit = median + sigma_threshold * std_dev
     lower_limit = median - sigma_threshold * std_dev
     return (data > upper_limit) | (data < lower_limit)

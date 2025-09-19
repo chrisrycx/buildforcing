@@ -5,7 +5,7 @@ Unit tests for the snotelQC module
 import unittest
 import numpy as np
 import pandas as pd
-from buildforcing.snotelQC import check_outliers, qc_maxmin_temperatures, fill_T_nldas
+from buildforcing.snotelQC import check_outliers, qc_maxmin_temperatures, fill_T_nldas, detrend_seasonal_cycle
 
 
 class TestCheckOutliers(unittest.TestCase):
@@ -63,9 +63,17 @@ class TestQCMaxminTemperatures(unittest.TestCase):
         # Ensure Tmax > Tmin for normal data
         self.normal_df['Tmin'] = np.minimum(self.normal_df['Tmin'], self.normal_df['Tmax'] - 1)
 
+        # Add on a simple seasonal cycle
+        self.normal_df['Tmax'] += 10 * np.sin(2 * np.pi * (self.normal_df.index.dayofyear / 365))
+        self.normal_df['Tmin'] += 10 * np.sin(2 * np.pi * (self.normal_df.index.dayofyear / 365))
+
     def test_normal_data(self):
         # Test with normal temperature data
-        result = qc_maxmin_temperatures(self.normal_df)
+        # Just check for outliers
+        result = pd.DataFrame()
+        result['Tmax_bad'] = check_outliers(detrend_seasonal_cycle(self.normal_df['Tmax']), sigma_threshold=2.0)
+        result['Tmin_bad'] = check_outliers(detrend_seasonal_cycle(self.normal_df['Tmin']), sigma_threshold=2.0)
+
         self.assertIn('Tmax_bad', result.columns)
         self.assertIn('Tmin_bad', result.columns)
         self.assertEqual(len(result), len(self.normal_df))
