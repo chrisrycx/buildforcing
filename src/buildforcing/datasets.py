@@ -134,6 +134,10 @@ class siteNLDAS():
     base_url = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
 
     def __init__(self, latitude: float, longitude: float, start_date: datetime, end_date: datetime):
+        '''
+        Initialize the siteNLDAS class.
+        Start and end dates should include hours
+        '''
         self.latitude = latitude
         self.longitude = longitude
         self.start_date = start_date
