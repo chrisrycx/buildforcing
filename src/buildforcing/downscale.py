@@ -2,6 +2,7 @@
 Functions used to downscale NLDAS data for use with point modeling.
 '''
 import pandas as pd
+import numpy as np
 
 def raw_nldas(nldas_data: pd.Series, *args):
     '''
@@ -156,8 +157,7 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     Pcorrected = Pnldas * (Total Monthly Psnotel / Total Pnldas Monthly)
 
     Edge Cases:
-    If Snotel has significant precipitation but NLDAS does not, set to zero (**Improve this**)
-    If NLDAS has significant precipitation but Snotel does not, set to zero (**Improve this**)
+    If NLDAS has no precipitation for the month, then the corrected precipitation is set to zero.
 
     Note: Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
@@ -173,31 +173,40 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Convert to snotel timezone
     nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
-    # Replace any Snotel NaN values with 0.0
-    snotel_daily_precip_mm = snotel_daily_precip_mm.fillna(0.0)
-
-    # Resample nldas to daily totals
-    # This is needed to ensure the 30day resampling aligns with the snotel data
-    nldas_daily = nldas_hourly_precip_mm.resample('D').sum()
-    snotel_daily_subset = snotel_daily_precip_mm.loc[nldas_daily.index]
+    # Track the number of naN values in the snotel data
+    snotel_daily_precip_mm.name = 'snotel'
+    snotel_daily_df = pd.DataFrame(snotel_daily_precip_mm)
+    snotel_daily_df['snotel_nan'] = snotel_daily_df.isna()
 
     # Resample the NLDAS and Snotel to monthly totals
-    nldas_monthly = nldas_hourly_precip_mm.resample('30D').sum()
-    snotel_monthly = snotel_daily_subset.resample('30D').sum()
+    nldas_monthly = nldas_hourly_precip_mm.resample('ME').sum()
+    snotel_monthly = snotel_daily_df.resample('ME').sum()
 
     # Merge the monthly data to find the scaling factor
-    nldas_monthly.name = 'nldas_monthly'
-    snotel_monthly.name = 'snotel_monthly'
+    nldas_monthly.name = 'nldas'
     nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel_monthly'] / nldas_monthly_df['nldas_monthly']
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
 
-    # Handle edge cases
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['nldas_monthly'] >= 0.5, 0.0)  # Potentially no precip in NLDAS
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].where(nldas_monthly_df['snotel_monthly'] > 0, 0.0)  # Potentially no precip in Snotel
+    # Perform regression analysis to places where snotel missing data exceeds a threshold
+    nan_threshold = 4  # Per month
+    if nldas_monthly_df['snotel_nan'].max() > 4:
+        # Use only months where number of NaN values is below the threshold
+        regression_data = nldas_monthly_df[nldas_monthly_df['snotel_nan'] <= nan_threshold]
+        
+        # Perform linear regression using numpy
+        slope, intercept = np.polyfit(regression_data['nldas'], regression_data['snotel'], 1)
+        linear_model = np.poly1d((slope, intercept))
+
+        # Apply regression model to months where missing data is above the threshold
+        nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'scaling_factor'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
+
+
+    # Handle edge case - If NLDAS has no precip, scaling factor will be infinity, set to zero
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf], 0.0)
 
     # Upscale the scaling factor to hourly data
     # This is done by repeating the monthly scaling factor for each hour in the month
-    nldas_scaling_factor = nldas_monthly_df['scaling_factor'].resample('h').ffill()
+    nldas_scaling_factor = nldas_monthly_df['scaling_factor'].resample('h').bfill()
     nldas_scaling_factor.name = 'scaling_factor'
 
     # Create a dataframe with the scaling factor for each hour
