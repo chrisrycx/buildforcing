@@ -4,6 +4,102 @@ Functions used to downscale NLDAS data for use with point modeling.
 import pandas as pd
 import numpy as np
 
+class PrecipDownscaler:
+    '''
+    Class to downscale NLDAS precipitation data to a Snotel site using daily Snotel precipitation data.
+    '''
+    def __init__(self, nldas_precip_mm: pd.Series, snotel_precip_mm: pd.Series):
+        self.nldas_precip_mm = nldas_precip_mm
+        self.snotel_precip_mm = snotel_precip_mm
+
+    def get_regression(self) -> tuple:
+        '''
+        Perform linear regression between monthly NLDAS and Snotel precipitation totals.
+        Returns the slope and intercept of the regression line.
+        '''
+        if not self.regression:
+            # Todo: Implement regression calculation
+        else:
+            return self.regression
+    
+    def downscale(self) -> pd.Series:
+        '''
+        Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
+        Due to differences in precipitation timing between NLDAS and snotel, the correction is based on the monthly
+        total precipitation at the Snotel site.
+
+        Pcorrected = Pnldas * (Total Monthly Psnotel / Total Pnldas Monthly)
+
+        Edge Cases:
+        If NLDAS has no precipitation for the month, then the corrected precipitation is set to zero.
+
+        Note: Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
+
+        Output is in hourly total precip [mm = kg/m2] with UTC timezone as per the target dataframe.
+
+        '''
+        # Check if the input data is timezone aware
+        if nldas_hourly_precip_mm.index.tz is None:
+            raise ValueError("NLDAS data must be timezone aware (UTC)")
+        if snotel_daily_precip_mm.index.tz is None:
+            raise ValueError("Snotel precipitation data must be timezone aware")
+        
+        # Convert to snotel timezone
+        nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
+
+        # Track the number of naN values in the snotel data
+        snotel_daily_precip_mm.name = 'snotel'
+        snotel_daily_df = pd.DataFrame(snotel_daily_precip_mm)
+        snotel_daily_df['snotel_nan'] = snotel_daily_df.isna()
+
+        # Resample the NLDAS and Snotel to monthly totals
+        nldas_monthly = nldas_hourly_precip_mm.resample('ME').sum()
+        snotel_monthly = snotel_daily_df.resample('ME').sum()
+
+        # Merge the monthly data to find the scaling factor
+        nldas_monthly.name = 'nldas'
+        nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
+        nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
+
+        # Perform regression analysis to places where snotel missing data exceeds a threshold
+        nan_threshold = 4  # Per month
+        if nldas_monthly_df['snotel_nan'].max() > 4:
+            # Use only months where number of NaN values is below the threshold
+            regression_data = nldas_monthly_df[nldas_monthly_df['snotel_nan'] <= nan_threshold]
+            
+            # Perform linear regression using numpy
+            slope, intercept = np.polyfit(regression_data['nldas'], regression_data['snotel'], 1)
+            linear_model = np.poly1d((slope, intercept))
+
+            # Apply regression model to months where missing data is above the threshold
+            nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'scaling_factor'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
+
+
+            # Handle edge case - If NLDAS has no precip, scaling factor will be infinity, set to zero
+            nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf], 0.0)
+
+            # Upscale the scaling factor to hourly data
+            # This is done by repeating the monthly scaling factor for each hour in the month
+            nldas_scaling_factor = nldas_monthly_df['scaling_factor'].resample('h').bfill()
+            nldas_scaling_factor.name = 'scaling_factor'
+
+            # Create a dataframe with the scaling factor for each hour
+            nldas_hourly_precip_mm.name = 'nldas_hourly'
+            nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_scaling_factor, how='left', left_index=True, right_index=True)
+            
+            # Forward fill the scaling factor to fill in any missing values
+            # This is required even when upsampling the scaling factor to hourly data because the upsampled data may not have the same index as the original data
+            nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
+
+            # Multiply the NLDAS hourly data by the scaling factor for each hour
+            nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
+
+            # Change timezone back to UTC
+            nldas_hourly = nldas_hourly.tz_convert('UTC')
+
+            return nldas_hourly['downscaled']
+
+
 def raw_nldas(nldas_data: pd.Series, *args):
     '''
     Just a passthru function that accepts a variable number of arguments.
@@ -150,80 +246,16 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
 def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
     '''
-    Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
-    Due to differences in precipitation timing between NLDAS and snotel, the correction is based on the monthly
-    total precipitation at the Snotel site.
-
-    Pcorrected = Pnldas * (Total Monthly Psnotel / Total Pnldas Monthly)
-
-    Edge Cases:
-    If NLDAS has no precipitation for the month, then the corrected precipitation is set to zero.
+    Wrapper for the PrecipDownscaler class to downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
 
     Note: Both the NLDAS and Snotel data must have timezone aware datetime indexes. NLDAS data is expected to be in UTC.
 
     Output is in hourly total precip [mm = kg/m2] with UTC timezone as per the target dataframe.
 
     '''
-    # Check if the input data is timezone aware
-    if nldas_hourly_precip_mm.index.tz is None:
-        raise ValueError("NLDAS data must be timezone aware (UTC)")
-    if snotel_daily_precip_mm.index.tz is None:
-        raise ValueError("Snotel precipitation data must be timezone aware")
+    downscaler = PrecipDownscaler(nldas_hourly_precip_mm, snotel_daily_precip_mm)
+    return downscaler.downscale()
     
-    # Convert to snotel timezone
-    nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
-
-    # Track the number of naN values in the snotel data
-    snotel_daily_precip_mm.name = 'snotel'
-    snotel_daily_df = pd.DataFrame(snotel_daily_precip_mm)
-    snotel_daily_df['snotel_nan'] = snotel_daily_df.isna()
-
-    # Resample the NLDAS and Snotel to monthly totals
-    nldas_monthly = nldas_hourly_precip_mm.resample('ME').sum()
-    snotel_monthly = snotel_daily_df.resample('ME').sum()
-
-    # Merge the monthly data to find the scaling factor
-    nldas_monthly.name = 'nldas'
-    nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
-
-    # Perform regression analysis to places where snotel missing data exceeds a threshold
-    nan_threshold = 4  # Per month
-    if nldas_monthly_df['snotel_nan'].max() > 4:
-        # Use only months where number of NaN values is below the threshold
-        regression_data = nldas_monthly_df[nldas_monthly_df['snotel_nan'] <= nan_threshold]
-        
-        # Perform linear regression using numpy
-        slope, intercept = np.polyfit(regression_data['nldas'], regression_data['snotel'], 1)
-        linear_model = np.poly1d((slope, intercept))
-
-        # Apply regression model to months where missing data is above the threshold
-        nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'scaling_factor'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
-
-
-    # Handle edge case - If NLDAS has no precip, scaling factor will be infinity, set to zero
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf], 0.0)
-
-    # Upscale the scaling factor to hourly data
-    # This is done by repeating the monthly scaling factor for each hour in the month
-    nldas_scaling_factor = nldas_monthly_df['scaling_factor'].resample('h').bfill()
-    nldas_scaling_factor.name = 'scaling_factor'
-
-    # Create a dataframe with the scaling factor for each hour
-    nldas_hourly_precip_mm.name = 'nldas_hourly'
-    nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_scaling_factor, how='left', left_index=True, right_index=True)
-    
-    # Forward fill the scaling factor to fill in any missing values
-    # This is required even when upsampling the scaling factor to hourly data because the upsampled data may not have the same index as the original data
-    nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
-
-    # Multiply the NLDAS hourly data by the scaling factor for each hour
-    nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
-
-    # Change timezone back to UTC
-    nldas_hourly = nldas_hourly.tz_convert('UTC')
-
-    return nldas_hourly['downscaled']
 
 def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''
