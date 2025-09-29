@@ -2,7 +2,9 @@ import unittest
 import pandas as pd
 import numpy as np
 from zoneinfo import ZoneInfo
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta, timezone
+from buildforcing.datasets import PNNLSnotel, siteNLDAS
 from buildforcing.downscale import downscaleTairV1, downscaleTairV0, downscalePrecipV1, partitionPrecipV0
 
 @unittest.skip('Older version will be removed')
@@ -165,47 +167,38 @@ class TestDownscaleTairV1(unittest.TestCase):
         with self.assertRaises(ValueError):
             downscaleTairV1(self.nldas_Tair_K, snotel_missing, self.snotel_Tmin_C)
 
-
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
-        # Create a dummy precipitation dataset (4 days with hourly data)
-        self.precip_mm = pd.Series(
-            [1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8],
-            index=pd.date_range("2023-01-02 00:00", periods=16, freq="6h", tz="UTC")
-        )
+        # Run a test using some actual data
+        snotel = PNNLSnotel('Quemazon', os.environ['SNOTEL_PATH'])
+        snotel.load_data()
+        self.snotel_precip = snotel.data.loc['2016-01-01':'2019-12-31','precip_mm']  # Should contain a gap
+        nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date=datetime(2016,1,1,0), end_date=datetime(2019,12,31,23))
+        nldas.loadNetCDF(os.environ['NLDAS_PATH'])
+        self.nldas_precip = nldas.data['Rainf']
 
-        # Resample to hourly data
-        self.precip_mm = self.precip_mm.resample("1h").ffill()
+    def test_downscalePrecipV1(self):
 
-        # 4 days of SNOTEL data (daily data), first day will be doubled, second day will be halved, third day will be missing, fourth day will be zero
-        self.snotel_mm = pd.Series(
-            [20,13,None,0],
-            index=pd.date_range("2023-01-02 00:00", periods=4, freq="24h", tz="UTC")
-        )
-    
-    def test_scaling(self):
-        '''
-        Basic test of the downscaling function.
-        '''
-        # By my calculation, the first day total precip should be 60 
-        rescaled = downscalePrecipV1(self.precip_mm, self.snotel_mm)
+        nldas_corrected = downscalePrecipV1(self.nldas_precip, self.snotel_precip)
 
-        # Assert the result is a pandas Series
-        self.assertIsInstance(rescaled, pd.Series)
+        # Verify index is in UTC
+        self.assertEqual(nldas_corrected.index.tz, timezone.utc)
+        
+        # Verify output does not have NaNs
+        self.assertFalse(nldas_corrected.isna().any())
 
-        # Assert the result has the same index as the input NLDAS data
-        self.assertTrue(rescaled.index.equals(self.precip_mm.index))
+        # Verify sum of 2016 precip is close to SNOTEL
+        snotel_2016_sum = self.snotel_precip.loc['2016'].sum()
+        nldas_2016_sum = nldas_corrected.loc['2016'].sum()
+        self.assertAlmostEqual(snotel_2016_sum, nldas_2016_sum, places=1)
 
-        # Check that the sum of the rescaled data matches the snotel sum for this single month test dataset
-        self.assertEqual(rescaled.sum(), self.snotel_mm.fillna(0).sum())
+        # Verify total precip in 2018, where SNOTEL data is missing, is similar to total in 2019
+        nldas_2018_sum = nldas_corrected.loc['2018'].sum()
+        nldas_2019_sum = nldas_corrected.loc['2019'].sum()
+        self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.1)  # Allow 10% difference
 
-    #Skip for now
-    @unittest.skip("Skipping test_zero until implemented")
-    def test_zero_monthly_snotel(self):
-        '''
-        Verify correct handling of zeros in the SNOTEL data, but NLDAS is showing precip.
-        '''
-        print("Need to implement this test")
+        
+
 
 class TestpartitionPrecipV0(unittest.TestCase):
     def setUp(self):
