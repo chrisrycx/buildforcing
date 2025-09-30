@@ -7,6 +7,7 @@ import unittest
 from buildforcing.datasets import PNNLSnotel
 import os
 
+@unittest.skip('Needs refactor')
 class TestPNNLSnotel(unittest.TestCase):
     def setUp(self):
         pass

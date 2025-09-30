@@ -173,6 +173,12 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Convert to snotel timezone
     nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
+    # NLDAS start and end date should be inside the snotel date range
+    if nldas_hourly_precip_mm.index.min() < snotel_daily_precip_mm.index.min():
+        raise ValueError("NLDAS data starts before Snotel data")
+    if nldas_hourly_precip_mm.index.max() > snotel_daily_precip_mm.index.max():
+        raise ValueError("NLDAS data ends after Snotel data")
+
     # Track the number of naN values in the snotel data
     snotel_daily_precip_mm.name = 'snotel'
     snotel_daily_df = pd.DataFrame(snotel_daily_precip_mm)
@@ -185,7 +191,7 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Merge the monthly data to find the scaling factor
     nldas_monthly.name = 'nldas'
     nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
+   
 
     # Perform regression analysis to places where snotel missing data exceeds a threshold
     nan_threshold = 4  # Per month
@@ -198,8 +204,11 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
         linear_model = np.poly1d((slope, intercept))
 
         # Apply regression model to months where missing data is above the threshold
-        nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'scaling_factor'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
+        # This will replace nldas values with the regression model values and the scale factor will be set to 1 for upscaling
+        nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'snotel'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
 
+    # Calculate the scaling factor
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
 
     # Handle edge case - If NLDAS has no precip, scaling factor will be infinity, set to zero
     nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf], 0.0)

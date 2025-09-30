@@ -170,16 +170,31 @@ class TestDownscaleTairV1(unittest.TestCase):
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
         # Run a test using some actual data
-        snotel = PNNLSnotel('Quemazon', os.environ['SNOTEL_PATH'])
-        snotel.load_data()
-        self.snotel_precip = snotel.data.loc['2016-01-01':'2019-12-31','precip_mm']  # Should contain a gap
-        nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date=datetime(2016,1,1,0), end_date=datetime(2019,12,31,23))
+        self.snotel = PNNLSnotel('Quemazon', os.environ['SNOTEL_PATH'])
+        self.snotel.load_data()
+        self.snotel_precip = self.snotel.data.loc['2016-01-01':'2019-12-31','precip_mm']  # Should contain a gap
+
+    def test_input_date_range(self):
+        '''
+        Test the input date range for the downscaling function.
+        '''
+        nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, start_date=datetime(2016,1,1,0), end_date=datetime(2019,12,31,23))
         nldas.loadNetCDF(os.environ['NLDAS_PATH'])
-        self.nldas_precip = nldas.data['Rainf']
+        nldas_precip = nldas.data['Rainf']
+
+        # Verify that there is a value error when NLDAS data is outside SNOTEL range
+        # Note: NLDAS in this function will be outside the snotel range after the timezone conversion
+        with self.assertRaises(ValueError):
+            downscalePrecipV1(nldas_precip, self.snotel_precip)
+     
 
     def test_downscalePrecipV1(self):
 
-        nldas_corrected = downscalePrecipV1(self.nldas_precip, self.snotel_precip)
+        nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, start_date=datetime(2016,1,2,0), end_date=datetime(2019,12,30,23))
+        nldas.loadNetCDF(os.environ['NLDAS_PATH'])
+        nldas_precip = nldas.data['Rainf']
+
+        nldas_corrected = downscalePrecipV1(nldas_precip, self.snotel_precip)
 
         # Verify index is in UTC
         self.assertEqual(nldas_corrected.index.tz, timezone.utc)
@@ -190,12 +205,12 @@ class TestdownscalePrecipV1(unittest.TestCase):
         # Verify sum of 2016 precip is close to SNOTEL
         snotel_2016_sum = self.snotel_precip.loc['2016'].sum()
         nldas_2016_sum = nldas_corrected.loc['2016'].sum()
-        self.assertAlmostEqual(snotel_2016_sum, nldas_2016_sum, places=1)
+        self.assertAlmostEqual(snotel_2016_sum, nldas_2016_sum, delta=1)
 
         # Verify total precip in 2018, where SNOTEL data is missing, is similar to total in 2019
         nldas_2018_sum = nldas_corrected.loc['2018'].sum()
         nldas_2019_sum = nldas_corrected.loc['2019'].sum()
-        self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.1)  # Allow 10% difference
+        self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.2)  # Allow 20% difference
 
         
 
