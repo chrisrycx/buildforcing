@@ -3,6 +3,7 @@ Functions used to downscale NLDAS data for use with point modeling.
 '''
 import pandas as pd
 import numpy as np
+from buildforcing.snotelQC import fill_T_nldas, qc_maxmin_temperatures
 
 def raw_nldas(nldas_data: pd.Series, *args):
     '''
@@ -100,9 +101,15 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     # Convert to snotel timezone
     nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_Tmax_C.index.tz)
 
+    # Quality control the snotel temperature data
+    snotel_df = pd.DataFrame({'T_max_C': snotel_Tmax_C, 'T_min_C': snotel_Tmin_C})
+    T_qc_flags = qc_maxmin_temperatures(snotel_df)
+    snotel_Tmax_QCd = fill_T_nldas(snotel_df['T_max_C'].where(~T_qc_flags['Tmax_bad']), nldas_Tair_K)
+    snotel_Tmin_QCd = fill_T_nldas(snotel_df['T_min_C'].where(~T_qc_flags['Tmin_bad']), nldas_Tair_K)
+
     # Convert snotel temperatures to K
-    snotel_Tmax_K = snotel_Tmax_C + 273.15
-    snotel_Tmin_K = snotel_Tmin_C + 273.15
+    snotel_Tmax_K = snotel_Tmax_QCd['T_max_C'] + 273.15
+    snotel_Tmin_K = snotel_Tmin_QCd['T_min_C'] + 273.15
     snotel_Tmax_K.name = 'snotel_Tmax'
     snotel_Tmin_K.name = 'snotel_Tmin'
 
@@ -111,15 +118,6 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     nldas_daily_min = nldas_Tair_K.resample('D').min()
     nldas_daily_max.name = 'nldas_daily_max'
     nldas_daily_min.name = 'nldas_daily_min'
-
-    # Linearly interpolate any missing values in the snotel data
-    # Limiting to one day to avoid excessive interpolation
-    snotel_Tmax_K = snotel_Tmax_K.interpolate(limit=1)
-    snotel_Tmin_K = snotel_Tmin_K.interpolate(limit=1)
-
-    # Raise error is any remaining NaN values in snotel data
-    if snotel_Tmax_K.isna().any() or snotel_Tmin_K.isna().any():
-        raise ValueError("Remaining NaN values found in Snotel data after interpolation")
 
     # Combine daily values into one dataframe
     daily_data = pd.concat([nldas_daily_max, nldas_daily_min], axis=1)
@@ -234,7 +232,6 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
 
     return nldas_hourly['downscaled']
     
-
 def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''
     Partition precipitation into rain and snow.

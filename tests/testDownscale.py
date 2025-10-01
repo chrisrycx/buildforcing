@@ -140,12 +140,11 @@ class TestDownscaleTairV1(unittest.TestCase):
     def test_missingday(self):
         '''
         Test handling of missing day in SNOTEL data.
-        For V0 of this algorithm, I will just linearly interpolate the missing max/min values.
         '''
         result = downscaleTairV1(self.nldas_Tair_K, self.snotel_Tmax_C, self.snotel_Tmin_C)
 
         # Expected result values
-        expected_temp_C = [0,2,4,0,2,1,4,4,0.5,2.25,4,0.5,1.33,0,4,4]
+        expected_temp_C = [0,2,4,0,2,1,4,4,1.0,2.5,4,1.0,1.33,0,4,4]
         expected_temp_K = [temp + 273.15 for temp in expected_temp_C]
         expected_result = pd.Series(
             expected_temp_K,
@@ -157,15 +156,6 @@ class TestDownscaleTairV1(unittest.TestCase):
             print(f"Result C: {result.iloc[i] - 273.15}, Expected C: {expected_result.iloc[i] - 273.15}")
             self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
 
-    def test_missing2days(self):
-        '''
-        Test handling of two missing days in SNOTEL data.
-        This should throw an error because the I am limiting the interpolation to one day.
-        '''
-        snotel_missing = self.snotel_Tmax_C.copy()
-        snotel_missing.iloc[1] = None
-        with self.assertRaises(ValueError):
-            downscaleTairV1(self.nldas_Tair_K, snotel_missing, self.snotel_Tmin_C)
 
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
@@ -211,9 +201,6 @@ class TestdownscalePrecipV1(unittest.TestCase):
         nldas_2018_sum = nldas_corrected.loc['2018'].sum()
         nldas_2019_sum = nldas_corrected.loc['2019'].sum()
         self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.2)  # Allow 20% difference
-
-        
-
 
 class TestpartitionPrecipV0(unittest.TestCase):
     def setUp(self):
