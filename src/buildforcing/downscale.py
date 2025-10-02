@@ -103,7 +103,7 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     # Quality control the snotel temperature data
     snotel_df = pd.DataFrame({'T_max_C': snotel_Tmax_C, 'T_min_C': snotel_Tmin_C})
-    T_qc_flags = qc_maxmin_temperatures(snotel_df)
+    T_qc_flags = qc_maxmin_temperatures(snotel_df, outlier_std=2.5)
     snotel_Tmax_QCd = fill_T_nldas(snotel_df['T_max_C'].where(~T_qc_flags['Tmax_bad']), nldas_Tair_K)
     snotel_Tmin_QCd = fill_T_nldas(snotel_df['T_min_C'].where(~T_qc_flags['Tmin_bad']), nldas_Tair_K)
 
