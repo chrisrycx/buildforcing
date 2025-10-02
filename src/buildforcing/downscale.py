@@ -172,9 +172,9 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
     # NLDAS start and end date should be inside the snotel date range
-    if nldas_hourly_precip_mm.index.min() < snotel_daily_precip_mm.index.min():
+    if nldas_hourly_precip_mm.index.min().date() < snotel_daily_precip_mm.index.min().date():
         raise ValueError("NLDAS data starts before Snotel data")
-    if nldas_hourly_precip_mm.index.max() > snotel_daily_precip_mm.index.max():
+    if nldas_hourly_precip_mm.index.max().date() > snotel_daily_precip_mm.index.max().date():
         raise ValueError("NLDAS data ends after Snotel data")
 
     # Track the number of naN values in the snotel data

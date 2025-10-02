@@ -1,7 +1,7 @@
 '''
 The main entry point for the buildforcing package. This package is used to build the forcing data for the point model.
 '''
-from datetime import datetime
+from datetime import datetime, date
 from buildforcing.datasets import PNNLSnotel, siteNLDAS, siteForcings
 from buildforcing.downscale import getDownscaleFunction
 import os
@@ -59,7 +59,7 @@ class SiteBuilder:
         # Load snotel data
         self.load_snotel_data(self.snotel_storage_path)
 
-    def findUsableDates(self) -> tuple[datetime, datetime]:
+    def findUsableDates(self) -> tuple[date, date]:
         '''
         Determine what date range is usable for the forcing data based on the snotel data.
         Wrapper so this can be used in different contexts.
