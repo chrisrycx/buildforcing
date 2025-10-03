@@ -29,12 +29,18 @@ class PNNLSnotel:
     def __init__(self, site_name: str, storage_path: str):
         self.site_name = site_name
         self.data: pd.DataFrame = pd.DataFrame()
+        self.latitude: float = 0.0
+        self.longitude: float = 0.0
+        self.elevation: float = 0.0
 
         # Load PNNL data path from environment variable
+        self.SNOTEL_PATH = storage_path
         self.PNNL_DATA_PATH = os.path.join(storage_path, 'bcqc_data_v2')
 
         # Load the metadata and associated data
+        self.precise_location: bool = False
         self.load_metadata()
+        self.check_location()
         self.timezone = self.get_timezone()
             
     def load_metadata(self):
@@ -63,6 +69,20 @@ class PNNLSnotel:
         if not site_match:
             raise ValueError(f"Site name {self.site_name} not found in the PNNL Snotel metadata file.")
     
+    def check_location(self):
+        '''
+        Check for more precise location in Detre data file
+        '''
+        # Load the Detre data file
+        precise_locations = pd.read_csv(os.path.join(self.SNOTEL_PATH, 'SNOTEL_Detre.csv'))
+        precise_locations.set_index('site_name', inplace=True)
+
+        if self.site_name in precise_locations.index:
+            self.latitude = precise_locations.loc[self.site_name, 'latitude_precise']
+            self.longitude = precise_locations.loc[self.site_name, 'longitude_precise']
+            self.elevation = precise_locations.loc[self.site_name, 'elevation_precise']
+            self.precise_location = True
+
     def load_data(self):
 
         # Build the file name for the site. The file name uses the site latitude and longitude to 5 decimal places: "bcqc_latitude_longitude.txt"
