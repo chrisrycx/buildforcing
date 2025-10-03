@@ -38,6 +38,7 @@ class PNNLSnotel:
         self.PNNL_DATA_PATH = os.path.join(storage_path, 'bcqc_data_v2')
 
         # Load the metadata and associated data
+        self.file_name: str = '' #Initialize here, set during metadata load
         self.precise_location: bool = False
         self.load_metadata()
         self.check_location()
@@ -68,6 +69,10 @@ class PNNLSnotel:
         
         if not site_match:
             raise ValueError(f"Site name {self.site_name} not found in the PNNL Snotel metadata file.")
+        
+        # Build the file name for the site. The file name uses the site latitude and longitude to 5 decimal places: "bcqc_latitude_longitude.txt"
+        # Note! This needs to be done before data loading since the lat and long may be updated with more precise values
+        self.file_name = f'bcqc_{self.latitude:.5f}_{self.longitude:.5f}.txt'
     
     def check_location(self):
         '''
@@ -85,11 +90,8 @@ class PNNLSnotel:
 
     def load_data(self):
 
-        # Build the file name for the site. The file name uses the site latitude and longitude to 5 decimal places: "bcqc_latitude_longitude.txt"
-        file_name = f'bcqc_{self.latitude:.5f}_{self.longitude:.5f}.txt'
-
         # Build the full path to the file
-        rawfile = os.path.join(self.PNNL_DATA_PATH,'bcqc_data',file_name)
+        rawfile = os.path.join(self.PNNL_DATA_PATH,'bcqc_data',self.file_name)
 
         # Read the txt file into a pandas dataframe. No header, separator is spaces
         snotel_data = pd.read_csv(rawfile, delimiter=r'\s+', header=None, names=['Year', 'Month', 'Day', 'Precipitation', 'Max Temp', 'Min Temp', 'Avg Temp', 'Snow Water Equivalent'])
@@ -153,16 +155,21 @@ class siteNLDAS():
     # Data URL
     base_url = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
 
-    def __init__(self, latitude: float, longitude: float, start_date: datetime, end_date: datetime):
+    def __init__(self, snotel: str, latitude: float, longitude: float, start_date: datetime, end_date: datetime, storage_path: str):
         '''
         Initialize the siteNLDAS class.
         Start and end dates should include hours
         '''
+        self.snotel_name = snotel
+        self.snotel_filename = snotel.replace(" ","").replace("#","").lower()
+
+        self.storage_path = storage_path
         self.latitude = latitude
         self.longitude = longitude
         self.start_date = start_date
         self.end_date = end_date
         self.data = pd.DataFrame()
+        self.elevation = None
 
         # Initialize a session with retry logic
         self.session = requests.Session()
@@ -176,6 +183,14 @@ class siteNLDAS():
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
+    def getNLDASElevation(self):
+        '''
+        Get the elevation for the site from the NLDAS topography data.
+        '''
+        nldas_topography = xr.open_dataset(os.path.join(self.storage_path, 'NLDAS_elevation.nc4'))
+        self.elevation = nldas_topography.sel(lat=self.latitude, lon=self.longitude, method='nearest').NLDAS_elev.values.item()
+        nldas_topography.close()
+    
     def getforcing(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
         '''
         Get data based on the forcing name.
@@ -257,19 +272,22 @@ class siteNLDAS():
             # Add the forcing data to the dataframe
             self.data[forcing_name] = forcing_series
 
-    def findNetCDF(self, storage_path: str) -> str | None:
+        # Get nldas elevation data
+        self.getNLDASElevation()
+
+    def findNetCDF(self) -> str | None:
         '''
         Find the NLDAS data file in the storage path with dates that are equal to or greater than the start date and less than or equal to the end date.
         The file follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
         '''
-        file_list = os.listdir(storage_path)
+        file_list = os.listdir(self.storage_path)
 
         # Check the start and end dates for each file
         for file_name in file_list:
-            if file_name.startswith(f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_'):
+            if file_name.startswith(f'NLDAS_{self.snotel_filename}_'):
                 # Extract the start and end dates from the file name
-                date_parts = file_name[:-3].split('_')[3:5]
+                date_parts = file_name[:-3].split('_')[2:4]
                 file_start_date = pd.to_datetime(date_parts[0], format='%Y%m%d')
                 file_end_date = pd.to_datetime(date_parts[1], format='%Y%m%d')
 
@@ -280,18 +298,18 @@ class siteNLDAS():
         # If no file is found, return None
         return None
 
-    def loadNetCDF(self, storage_path: str):
+    def loadNetCDF(self):
         '''
         Load the NLDAS data from a NetCDF file: <storage_path>/<file_name>
         File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
         Latitude and longitude to 2 decimal places.
         '''
-        file_name = self.findNetCDF(storage_path)
+        file_name = self.findNetCDF()
         if file_name is None:
-            raise ValueError(f"No NLDAS data file found for the specified latitude, longitude, and date range in {storage_path}")
-        
-        file_path = os.path.join(storage_path, file_name)
+            raise ValueError(f"No NLDAS data file found for the specified name {self.snotel_filename} and date range in {self.storage_path}")
+
+        file_path = os.path.join(self.storage_path, file_name)
 
         # Open the dataset, this will fail if the file doesn't exist
         ds = xr.open_dataset(file_path)
@@ -301,23 +319,30 @@ class siteNLDAS():
         self.data = self.data.loc[self.start_date:self.end_date]  # Limit the data to the specified date range
         self.data.index = self.data.index.tz_localize('UTC')
 
+        # Get the elevation from the dataset
+        self.elevation = ds['elevation'].values.item()
+        
         ds.close()
 
-    def saveNetCDF(self, storage_path: str):
+    def saveNetCDF(self):
         '''
         Save the NLDAS data to a NetCDF file: <storage_path>/<file_name>
         File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
         Latitude and longitude to 2 decimal places.
         '''
-        file_name = f'NLDAS_{self.latitude:.2f}_{self.longitude:.2f}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
-        file_path = os.path.join(storage_path,file_name)
+        file_name = f'NLDAS_{self.snotel_filename}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
+        file_path = os.path.join(self.storage_path,file_name)
 
         # Remove problematic timezone information from the index
         data_notz = self.data.copy()
         data_notz.index = data_notz.index.tz_localize(None)
         ds = xr.Dataset.from_dataframe(data_notz)
         ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
+
+        # Save elevation data
+        ds['elevation'] = xr.DataArray(self.elevation, dims=[], attrs={'long_name': 'NLDAS Elevation', 'units': 'm'})        
+
         ds.close()
 
 class ForcingMetadata:

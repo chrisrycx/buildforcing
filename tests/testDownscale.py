@@ -168,8 +168,15 @@ class TestdownscalePrecipV1(unittest.TestCase):
         '''
         Test the input date range for the downscaling function.
         '''
-        nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, start_date=datetime(2016,1,1,0), end_date=datetime(2019,12,31,23))
-        nldas.loadNetCDF(os.environ['NLDAS_PATH'])
+        nldas = siteNLDAS(
+            self.snotel.site_name,
+            self.snotel.latitude, 
+            self.snotel.longitude, 
+            start_date=datetime(2016,1,1,0), 
+            end_date=datetime(2019,12,31,23),
+            storage_path=os.getenv('NLDAS_PATH')
+        )
+        nldas.loadNetCDF()
         nldas_precip = nldas.data['Rainf']
 
         # Verify that there is a value error when NLDAS data is outside SNOTEL range
@@ -180,8 +187,9 @@ class TestdownscalePrecipV1(unittest.TestCase):
 
     def test_downscalePrecipV1(self):
 
-        nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, start_date=datetime(2016,1,2,0), end_date=datetime(2019,12,30,23))
-        nldas.loadNetCDF(os.environ['NLDAS_PATH'])
+        nldas = siteNLDAS(self.snotel.site_name,self.snotel.latitude, self.snotel.longitude, 
+                          start_date=datetime(2016,1,2,0), end_date=datetime(2019,12,30,23), storage_path=os.getenv('NLDAS_PATH'))
+        nldas.loadNetCDF()
         nldas_precip = nldas.data['Rainf']
 
         nldas_corrected = downscalePrecipV1(nldas_precip, self.snotel_precip)

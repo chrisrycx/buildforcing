@@ -258,6 +258,20 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
 
     return data[['rain_mm', 'snow_mm']]
 
+def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: float, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.Series:
+    '''
+    Downscale pressure following Chen 2024, which appears to use the hydrostatic equation.
+    Ideally Tair should be the average temperature between the two elevations in the atmosphere.
+    '''
+    # Constants
+    g = 9.81  # m/s2
+    R_d = 287.05  # J/(kg*K)
+
+    # Calculate the pressure at the Snotel site using the hydrostatic equation
+    P_snotel = nldas_Psurf_Pa * np.exp(-1*g*(snotel_elevation_m - nldas_elevation_m) / (R_d*Tair_avg_K))
+
+    return P_snotel
+
 def getDownscaleFunction(variable_name: str, version: int = 0) -> callable:
     '''
     Get the downscaling function for a given variable name and version.
@@ -288,6 +302,7 @@ def getDownscaleFunction(variable_name: str, version: int = 0) -> callable:
         },
         'Psurf': {
             0: raw_nldas,  # No downscaling for Psurf, just pass through
+            1: downscalePressureV0,  # Downscale pressure using the V0 method
         },
         'Wind': {
             0: raw_nldas,  # No downscaling for Wind, just pass through

@@ -14,11 +14,15 @@ snotel = PNNLSnotel(site_name, 'c:/Users/clmbn/NMT_PhD/data/snotel/')
 print(f'Snotel site {snotel.site_name} found with coordinates: ({snotel.latitude}, {snotel.longitude})')
 
 # Create the NLDAS dataset
-nldas = siteNLDAS(snotel.latitude, snotel.longitude, start_date, end_date)
+nldas = siteNLDAS(snotel.site_name, snotel.latitude, snotel.longitude, start_date, end_date, os.getenv('NLDAS_PATH')) # type: ignore
 
 # Check findNetCDF method
-nldas_file = nldas.findNetCDF('c:/Users/clmbn/NMT_PhD/data/nldas/')
+nldas_file = nldas.findNetCDF()
 print(f'Found NLDAS file: {nldas_file}')
 
 # Load the NLDAS data from the found file
-nldas.loadNetCDF('c:/Users/clmbn/NMT_PhD/data/nldas/')
+nldas.loadNetCDF()
+
+# Print out elevation data
+print(f'SNOTEL Elevation: {snotel.elevation} m')
+print(f'NLDAS Elevation: {nldas.elevation} m')
