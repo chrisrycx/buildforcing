@@ -1,5 +1,6 @@
 Version History:
-Version 0.7.1 - 2025-10-01 - Added more precise snotel location data from Detre dataset.
+Version 0.7.2 - 2025-10-06 - Pressure downscaling implemented.
+Version 0.7.1 - 2025-10-01 - Added more precise snotel location data from Detre dataset. Changed how NLDAS files are named.
 Version 0.7.0 - 2025-09-30 - Redesigned how gap filling is handled in temperature and precipitation. Added temperature QC.
 Version 0.6.0 - 2025-08-05 - Added 1 day limit to interpolation in temperature downloaded and tested.
 Version 0.5.1 - 2025-08-04 - Added a utility script for outputting settings order to command line.
