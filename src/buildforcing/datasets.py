@@ -155,7 +155,7 @@ class siteNLDAS():
     # Data URL
     base_url = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
 
-    def __init__(self, snotel: str, latitude: float, longitude: float, start_date: datetime, end_date: datetime, storage_path: str):
+    def __init__(self, snotel: str, start_date: datetime, end_date: datetime, storage_path: str):
         '''
         Initialize the siteNLDAS class.
         Start and end dates should include hours
@@ -164,8 +164,8 @@ class siteNLDAS():
         self.snotel_filename = snotel.replace(" ","").replace("#","").lower()
 
         self.storage_path = storage_path
-        self.latitude = latitude
-        self.longitude = longitude
+        self.latitude = None
+        self.longitude = None
         self.start_date = start_date
         self.end_date = end_date
         self.data = pd.DataFrame()
@@ -243,10 +243,13 @@ class siteNLDAS():
 
         return nldas_data
 
-    def getdata(self):
+    def getdata(self, latitude: float, longitude: float):
         '''
         Get the data for all forcings. This will also split the request into multiple requests if the date range is too large.
         '''
+        self.latitude = latitude
+        self.longitude = longitude
+
         # Set chunk size for downloads
         chunk_size = 20 # years
 
@@ -327,9 +330,8 @@ class siteNLDAS():
     def saveNetCDF(self):
         '''
         Save the NLDAS data to a NetCDF file: <storage_path>/<file_name>
-        File follows the naming convention: "NLDAS_{latitude}_{longitude}_{start_date}_{end_date}.nc"
+        File follows the naming convention: "NLDAS_{snotel_name}_{start_date}_{end_date}.nc"
         With dates: YYYYMMDD
-        Latitude and longitude to 2 decimal places.
         '''
         file_name = f'NLDAS_{self.snotel_filename}_{self.start_date.strftime("%Y%m%d")}_{self.end_date.strftime("%Y%m%d")}.nc'
         file_path = os.path.join(self.storage_path,file_name)

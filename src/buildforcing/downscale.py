@@ -258,10 +258,11 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
 
     return data[['rain_mm', 'snow_mm']]
 
-def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: float, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.Series:
+def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.Series:
     '''
     Downscale pressure following Chen 2024, which appears to use the hydrostatic equation.
     Ideally Tair should be the average temperature between the two elevations in the atmosphere.
+    Assumes input data indexes match.
     '''
     # Constants
     g = 9.81  # m/s2
