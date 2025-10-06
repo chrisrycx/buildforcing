@@ -72,12 +72,12 @@ class SiteBuilder:
 
     def load_nldas_data(self, storage_path: str):
         # Load NLDAS data, locally if possible
-        self.nldas = siteNLDAS(self.snotel.latitude, self.snotel.longitude, self.start_date, self.end_date)
+        self.nldas = siteNLDAS(self.snotel.site_name, self.snotel.latitude, self.snotel.longitude, self.start_date, self.end_date, storage_path)
         try:
-            self.nldas.loadNetCDF(storage_path)
+            self.nldas.loadNetCDF()
         except FileNotFoundError:
             self.nldas.getdata()
-            self.nldas.saveNetCDF(storage_path)
+            self.nldas.saveNetCDF()
         
     def build(self, start_date: datetime, end_date: datetime):
         

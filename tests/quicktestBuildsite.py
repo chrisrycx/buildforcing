@@ -7,10 +7,10 @@ from buildforcing.downscale import downscaleTairV1
 from datetime import datetime, date, time, timezone
 from zoneinfo import ZoneInfo
 
-buildforcing_version = '0.7.0'  #Specify manually since project toml doesn't change
+buildforcing_version = '0.7.1'  #Specify manually since project toml doesn't change
 
-site_name = 'Tony Grove RS'
-useValidDates = True  #If true the custom dates below are ignored
+site_name = 'Baldy'
+useValidDates = False  #If true the custom dates below are ignored
 start_date = date(2015, 10, 1)
 end_date = date(2016, 10, 1)
 
