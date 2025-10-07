@@ -61,7 +61,7 @@ class PNNLSnotel:
                 column_values = line.split(',')
                 if column_values[3] == self.site_name:
                     site_match = True
-                    self.elevation: float = int(column_values[4])/3.28  # Convert meters to feet
+                    self.elevation: float = int(column_values[4])/3.28  # Convert feet to meters
                     self.latitude: float = float(column_values[5])
                     self.longitude: float = float(column_values[6])
                     self.start_date: datetime = datetime.strptime(column_values[7], '%m/%d/%Y')

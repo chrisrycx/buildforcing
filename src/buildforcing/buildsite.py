@@ -92,7 +92,7 @@ class SiteBuilder:
         # Corrections/Downscaling
         Tair_corrected = self.Tair_correction(self.nldas.data['Tair'], self.snotel.data['T_max_C'], self.snotel.data['T_min_C'])
         Qair_corrected = self.Qair_correction(self.nldas.data['Qair'], Tair_corrected)
-        Psurf_corrected = self.Psurf_correction(self.nldas.data['PSurf'])
+        Psurf_corrected = self.Psurf_correction(self.nldas.data['PSurf'], self.nldas.data['Tair'], snotel_elevation_m=self.snotel.elevation, nldas_elevation_m=self.nldas.elevation)
         swrad_corrected = self.swrad_correction(self.nldas.data['SWdown'])
         lwrad_corrected = self.lwrad_correction(self.nldas.data['LWdown'])
         precip_corrected = self.Rainf_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])

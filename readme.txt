@@ -1,4 +1,5 @@
 Version History:
+Version 0.7.3 - 2025-10-10 - Fixed bug in pressure correction where elevation argument name was incorrect.
 Version 0.7.2 - 2025-10-06 - Pressure downscaling implemented.
 Version 0.7.1 - 2025-10-01 - Added more precise snotel location data from Detre dataset. Changed how NLDAS files are named.
 Version 0.7.0 - 2025-09-30 - Redesigned how gap filling is handled in temperature and precipitation. Added temperature QC.

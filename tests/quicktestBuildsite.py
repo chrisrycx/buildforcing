@@ -7,15 +7,15 @@ from buildforcing.downscale import downscaleTairV1
 from datetime import datetime, date, time, timezone
 from zoneinfo import ZoneInfo
 
-buildforcing_version = '0.7.1'  #Specify manually since project toml doesn't change
+buildforcing_version = '0.7.3'  #Specify manually since project toml doesn't change
 
-site_name = 'Taos Powderhorn'
+site_name = 'Elk Cabin'
 useValidDates = False  #If true the custom dates below are ignored
 start_date = date(2015, 10, 1)
 end_date = date(2016, 10, 1)
 
 # Create site builder for the specified site
-build_settings = '00010010'  
+build_settings = '01010010'  
 forcing_builder = SiteBuilder(site_name, settings_str=build_settings)
 
 # Check if date range is valid
