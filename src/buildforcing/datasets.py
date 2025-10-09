@@ -4,10 +4,12 @@ Objects to get and store data from NLDAS or the PNNL snotel data (on Google Driv
 
 from typing import TypedDict
 import requests
+from requests.auth import HTTPBasicAuth
+import netrc # For handling .netrc files for authentication, standard library
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from io import StringIO, TextIOWrapper
 from timezonefinder import TimezoneFinder
 import os
@@ -152,8 +154,9 @@ class siteNLDAS():
     forcing_units = ['W/m^2','Pa','kg/kg','kg/m2','W/m^2','K','m/s','m/s']
     forcing_heights_m = [None,2,None,None,2,10,10]
 
-    # Data URL
-    base_url = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
+    # Data URLs
+    signin_url = "https://api.giovanni.earthdata.nasa.gov/signin"
+    time_series_url = "https://api.giovanni.earthdata.nasa.gov/timeseries"
 
     def __init__(self, snotel: str, start_date: datetime, end_date: datetime, storage_path: str):
         '''
@@ -191,6 +194,49 @@ class siteNLDAS():
         self.elevation = nldas_topography.sel(lat=self.latitude, lon=self.longitude, method='nearest').NLDAS_elev.values.item()
         nldas_topography.close()
     
+    def getAPIToken(self, refresh=False) -> str:
+        '''
+        Get an API token from the Earthdata Login system using .netrc file for authentication.
+        '''
+        # First check for existing saved token in home directory
+        token_file = os.path.join(self.storage_path, ".earthdata_token")
+        if os.path.exists(token_file):
+            with open(token_file, "r") as f:
+                dtstring, token = f.read().strip().split(' ')
+                token_datetime = datetime.strptime(dtstring, "%Y-%m-%dT%H:%M:%S")
+                # Check if token is still valid (less than 24 hours old)
+                if datetime.now() - token_datetime < timedelta(hours=24) and not refresh:
+                    return token
+
+        # Read .netrc file for credentials
+        try:
+            netrc_info = netrc.netrc()
+        except FileNotFoundError:
+            raise FileNotFoundError("No .netrc file found. Please create one with your Earthdata Login credentials.")
+        except Exception as e:
+            raise ValueError(f"Error reading .netrc file: {e}")
+
+        username, _, password = netrc_info.authenticators("urs.earthdata.nasa.gov")
+
+        # Make the GET request to get the token
+        response = self.session.get(self.signin_url, auth=HTTPBasicAuth(username, password),
+                     allow_redirects=True)
+
+        # Check if the request was successful
+        if response.status_code != 200:
+            raise ValueError(f"Failed to get API token. Status code: {response.status_code}")
+
+        # Extract the token from the response
+        token = response.text.replace('"','')
+        if not token:
+            raise ValueError("No access token found in the response.")
+        
+        # Save the token to a file with the current date and time
+        with open(token_file, "w") as f:
+            f.write(f"{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')} {token}")
+
+        return token
+    
     def getforcing(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
         '''
         Get data based on the forcing name.
@@ -209,29 +255,30 @@ class siteNLDAS():
 
         # Download the data
         params = {
-            'variable': f'NLDAS2:NLDAS_FORA0125_H_v2.0:{forcing_name}',
-            'startDate': request_start_date.strftime('%Y-%m-%dT%H'),
-            'endDate': request_end_date.strftime('%Y-%m-%dT%H'),
-            'location': f'GEOM:POINT({self.longitude:.2f}, {self.latitude:.2f})',
-            'type': 'asc2'
+            'data': f'NLDAS_FORA0125_H_2_0_{forcing_name}',
+            'location': f'[{self.latitude:.2f},{self.longitude:.2f}]',
+            'time': f"{request_start_date.strftime('%Y-%m-%dT%H:00:00')}/{request_end_date.strftime('%Y-%m-%dT%H:00:00')}",
+            'version': '2.0'
         }
 
         # Make the GET request to the API
         # request_url = requests.Request('GET', self.base_url, params=params).prepare().url
         # print(f"Requesting data from URL: {request_url}")
-        response = self.session.get(self.base_url, params=params, timeout=60)
+        response = self.session.get(self.time_series_url, params=params, timeout=60)
 
         # Check if the request was successful
         if response.status_code != 200:
+            # Save response for troubleshooting
+            self.response_error = response
             raise ValueError(f"Failed to download data. Status code: {response.status_code}")
             
         # Convert the response to a pandas dataframe
         nldas_csv = StringIO(response.text)
-        skip_rows = 12 #header rows
+        skip_rows = 15 #header rows
 
         nldas_csv.seek(0)  # Reset the StringIO object to the beginning
-        nldas_data = pd.read_csv(nldas_csv, delimiter=r'\s+', skiprows=skip_rows, index_col=0)
-        nldas_data.index = pd.to_datetime(nldas_data.index, format='%Y-%m-%dT%H:%M:%S', utc=True)
+        nldas_data = pd.read_csv(nldas_csv, skiprows=skip_rows, index_col=0)
+        nldas_data.index = pd.to_datetime(nldas_data.index, format='%Y-%m-%d %H:%M', utc=True)
 
         # Return the data as a pandas series
         nldas_data = nldas_data['Data'].copy()
@@ -249,6 +296,10 @@ class siteNLDAS():
         '''
         self.latitude = latitude
         self.longitude = longitude
+
+        # Authorize and get the API token
+        token = self.getAPIToken()
+        self.session.headers.update({'authorizationtoken': token})
 
         # Set chunk size for downloads
         chunk_size = 20 # years
