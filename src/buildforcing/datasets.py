@@ -197,45 +197,80 @@ class siteNLDAS():
     def getAPIToken(self, refresh=False) -> str:
         '''
         Get an API token from the Earthdata Login system using .netrc file for authentication.
+        Uses file locking to safely handle concurrent access from multiple processes.
         '''
+        from filelock import FileLock
+        
         # First check for existing saved token in home directory
         token_file = os.path.join(self.storage_path, ".earthdata_token")
-        if os.path.exists(token_file):
-            with open(token_file, "r") as f:
-                dtstring, token = f.read().strip().split(' ')
-                token_datetime = datetime.strptime(dtstring, "%Y-%m-%dT%H:%M:%S")
-                # Check if token is still valid (less than 24 hours old)
-                if datetime.now() - token_datetime < timedelta(hours=24) and not refresh:
-                    return token
-
-        # Read .netrc file for credentials
-        try:
-            netrc_info = netrc.netrc()
-        except FileNotFoundError:
-            raise FileNotFoundError("No .netrc file found. Please create one with your Earthdata Login credentials.")
-        except Exception as e:
-            raise ValueError(f"Error reading .netrc file: {e}")
-
-        username, _, password = netrc_info.authenticators("urs.earthdata.nasa.gov")
-
-        # Make the GET request to get the token
-        response = self.session.get(self.signin_url, auth=HTTPBasicAuth(username, password),
-                     allow_redirects=True)
-
-        # Check if the request was successful
-        if response.status_code != 200:
-            raise ValueError(f"Failed to get API token. Status code: {response.status_code}")
-
-        # Extract the token from the response
-        token = response.text.replace('"','')
-        if not token:
-            raise ValueError("No access token found in the response.")
+        lock_file = f"{token_file}.lock"
         
-        # Save the token to a file with the current date and time
-        with open(token_file, "w") as f:
-            f.write(f"{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')} {token}")
+        # Try reading without locking first (efficient for most cases)
+        if os.path.exists(token_file) and not refresh:
+            try:
+                with open(token_file, "r") as f:
+                    content = f.read().strip()
+                    if content:  # Make sure file is not empty
+                        dtstring, token = content.split(' ')
+                        token_datetime = datetime.strptime(dtstring, "%Y-%m-%dT%H:%M:%S")
+                        # Check if token is still valid (less than 24 hours old)
+                        if datetime.now() - token_datetime < timedelta(hours=24):
+                            return token
+            except Exception as e:
+                # Continue if there was any error reading the file
+                print(f"Warning: Error reading token file: {e}. Will request a new token.")
+                
+        # Need to get a new token or refresh existing one
+        with FileLock(lock_file, timeout=30):  # 30 seconds timeout to avoid deadlocks
+            # Check again (another process might have updated the token)
+            if os.path.exists(token_file) and not refresh:
+                try:
+                    with open(token_file, "r") as f:
+                        content = f.read().strip()
+                        if content:
+                            dtstring, token = content.split(' ')
+                            token_datetime = datetime.strptime(dtstring, "%Y-%m-%dT%H:%M:%S")
+                            # Check if token is still valid (less than 24 hours old)
+                            if datetime.now() - token_datetime < timedelta(hours=24):
+                                return token
+                except Exception:
+                    # Continue with getting a new token
+                    pass
 
-        return token
+            # Read .netrc file for credentials
+            try:
+                netrc_info = netrc.netrc()
+            except FileNotFoundError:
+                raise FileNotFoundError("No .netrc file found. Please create one with your Earthdata Login credentials.")
+            except Exception as e:
+                raise ValueError(f"Error reading .netrc file: {e}")
+
+            username, _, password = netrc_info.authenticators("urs.earthdata.nasa.gov")
+
+            # Make the GET request to get the token
+            response = self.session.get(self.signin_url, auth=HTTPBasicAuth(username, password),
+                         allow_redirects=True)
+
+            # Check if the request was successful
+            if response.status_code != 200:
+                raise ValueError(f"Failed to get API token. Status code: {response.status_code}")
+
+            # Extract the token from the response
+            token = response.text.replace('"','')
+            if not token:
+                raise ValueError("No access token found in the response.")
+            
+            # Write to a temporary file first, then move it to ensure atomic write
+            temp_token_file = f"{token_file}.tmp"
+            with open(temp_token_file, "w") as f:
+                f.write(f"{datetime.now().strftime('%Y-%m-%dT%H:%M:%S')} {token}")
+                f.flush()
+                os.fsync(f.fileno())  # Ensure data is written to disk
+            
+            # Atomically replace the old file with the new one
+            os.replace(temp_token_file, token_file)
+
+            return token
     
     def getforcing(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
         '''
