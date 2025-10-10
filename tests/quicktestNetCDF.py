@@ -5,12 +5,12 @@ import os
 from buildforcing.datasets import siteNLDAS, PNNLSnotel
 from datetime import datetime
 
-site_name = 'Tony Grove RS'
-start_date = datetime(1980, 1, 1)
+site_name = 'Promontory'
+start_date = datetime(2020, 1, 1)
 end_date = datetime(2021, 10, 1)
 
 # Create the snotel dataset
-snotel = PNNLSnotel(site_name, 'c:/Users/clmbn/NMT_PhD/data/snotel/')
+snotel = PNNLSnotel(site_name, os.getenv('SNOTEL_PATH')) # type: ignore
 print(f'Snotel site {snotel.site_name} found with coordinates: ({snotel.latitude}, {snotel.longitude})')
 
 # Create the NLDAS dataset
