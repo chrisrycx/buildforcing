@@ -15,5 +15,5 @@ print(f"Retrieved token: {token}")
 dummySite.session.headers.update({'authorizationtoken': token})
 dummySite.latitude = 35.92  # Example latitude
 dummySite.longitude = -106.39  # Example longitude
-data = dummySite.getforcing('Tair', datetime(2020, 1, 1), datetime(2020, 1, 2))
+data = dummySite.getforcingV0('Tair', datetime(2020, 1, 1), datetime(2020, 1, 2))
 print(data.head())

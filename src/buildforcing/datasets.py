@@ -272,7 +272,61 @@ class siteNLDAS():
 
             return token
     
-    def getforcing(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
+    def getforcingV0(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
+        '''
+        Get data based on the forcing name. This uses the older API endpoint.
+        I am inputing the start and end date here because I will need to split
+        the request into multiple requests if the date range is too large.
+        '''
+        api_endpoint = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
+
+        if forcing_name not in self.nldas_forcings:
+            raise ValueError(f"Invalid forcing name. Allowed values are: {self.nldas_forcings}")
+        
+        # Ensure date range is < 21 years
+        # Actual range is 22 years, checking for 21 years to be safe and not to clash with getdata method which uses pd.DateOffset
+        if (request_end_date - request_start_date).days > 365 * 21:
+            raise ValueError(f"Date range is too large. Maximum is 20 years. Requested: {request_start_date} to {request_end_date}")
+
+        print(f"Downloading {forcing_name} data from {request_start_date: %Y-%m-%d %H:00} to {request_end_date: %Y-%m-%d %H:00}")
+
+        # Download the data
+        params = {
+            'variable': f'NLDAS2:NLDAS_FORA0125_H_v2.0:{forcing_name}',
+            'startDate': request_start_date.strftime('%Y-%m-%dT%H'),
+            'endDate': request_end_date.strftime('%Y-%m-%dT%H'),
+            'location': f'GEOM:POINT({self.longitude:.2f}, {self.latitude:.2f})',
+            'type': 'asc2'
+        }
+
+        # Make the GET request to the API
+        # request_url = requests.Request('GET', self.base_url, params=params).prepare().url
+        # print(f"Requesting data from URL: {request_url}")
+        response = self.session.get(api_endpoint, params=params, timeout=60)
+
+        # Check if the request was successful
+        if response.status_code != 200:
+            raise ValueError(f"Failed to download data. Status code: {response.status_code}")
+            
+        # Convert the response to a pandas dataframe
+        nldas_csv = StringIO(response.text)
+        skip_rows = 12 #header rows
+
+        nldas_csv.seek(0)  # Reset the StringIO object to the beginning
+        nldas_data = pd.read_csv(nldas_csv, delimiter=r'\s+', skiprows=skip_rows, index_col=0)
+        nldas_data.index = pd.to_datetime(nldas_data.index, format='%Y-%m-%dT%H:%M:%S', utc=True)
+
+        # Return the data as a pandas series
+        nldas_data = nldas_data['Data'].copy()
+        nldas_data.name = forcing_name
+
+        # Check if the data is empty
+        if nldas_data.empty:
+            raise ValueError(f"No data downloaded for {forcing_name} in the specified date range.")
+
+        return nldas_data
+    
+    def getforcingV1(self, forcing_name, request_start_date: datetime, request_end_date: datetime) -> pd.Series:
         '''
         Get data based on the forcing name.
         I am inputing the start and end date here because I will need to split
@@ -325,16 +379,17 @@ class siteNLDAS():
 
         return nldas_data
 
-    def getdata(self, latitude: float, longitude: float):
+    def getdata(self, latitude: float, longitude: float, use_api_v0: bool = False):
         '''
         Get the data for all forcings. This will also split the request into multiple requests if the date range is too large.
         '''
         self.latitude = latitude
         self.longitude = longitude
 
-        # Authorize and get the API token
-        token = self.getAPIToken()
-        self.session.headers.update({'authorizationtoken': token})
+        if not use_api_v0:
+            # Authorize and get the API token
+            token = self.getAPIToken()
+            self.session.headers.update({'authorizationtoken': token})  
 
         # Set chunk size for downloads
         chunk_size = 20 # years
@@ -347,7 +402,10 @@ class siteNLDAS():
                 next_end_date = min(next_start_date + pd.DateOffset(years=chunk_size), self.end_date)
 
                 # Get the data for the forcing
-                new_forcing_series = self.getforcing(forcing_name, next_start_date, next_end_date)
+                if use_api_v0:
+                    new_forcing_series = self.getforcingV0(forcing_name, next_start_date, next_end_date)
+                else:
+                    new_forcing_series = self.getforcingV1(forcing_name, next_start_date, next_end_date)
 
                 # Append the data to the existing data
                 if forcing_series.empty:
