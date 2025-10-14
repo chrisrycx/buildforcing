@@ -161,7 +161,8 @@ class siteNLDAS():
     def __init__(self, snotel: str, start_date: datetime, end_date: datetime, storage_path: str):
         '''
         Initialize the siteNLDAS class.
-        Start and end dates should include hours
+        Start and end dates should include hours.
+        Snotel name can be either full name or "filename" (no spaces, no #, all lowercase).
         '''
         self.snotel_name = snotel
         self.snotel_filename = snotel.replace(" ","").replace("#","").lower()
@@ -177,9 +178,9 @@ class siteNLDAS():
         # Initialize a session with retry logic
         self.session = requests.Session()
         retries = Retry(
-            total=2,  # Number of retries
-            backoff_factor=1,  # Wait time between retries
-            status_forcelist=[404],  # Retry on these HTTP status codes
+            total=3,  # Number of retries
+            backoff_factor=10,  # Wait time between retries
+            status_forcelist=[404, 503],  # Retry on these HTTP status codes
             allowed_methods=["GET"]  # Retry only for GET requests
         )
         adapter = HTTPAdapter(max_retries=retries)
