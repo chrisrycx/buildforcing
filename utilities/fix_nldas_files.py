@@ -76,7 +76,7 @@ for nc_file in nc_files:
             continue
 
     # Get elevation information from NLDAS elevation file
-    nldas = siteNLDAS(snotel_name, snotel.latitude, snotel.longitude, start_date=snotel.start_date, end_date=snotel.end_date, storage_path=nldas_path)
+    nldas = siteNLDAS(snotel_name, start_date=snotel.start_date, end_date=snotel.end_date, storage_path=nldas_path)
     nldas.getNLDASElevation()
 
     print(f"  SNOTEL Elevation: {snotel.elevation} m")
