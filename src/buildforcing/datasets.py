@@ -278,7 +278,10 @@ class siteNLDAS():
         Get data based on the forcing name. This uses the older API endpoint.
         I am inputing the start and end date here because I will need to split
         the request into multiple requests if the date range is too large.
+
+        Note: There is a banner now on the returned data saying this API will no longer be available after 2025-10-31.
         '''
+        print('Warning: Using deprecated NLDAS API v0, which will be discontinued after 2025-10-31. Please switch to API v1.')
         api_endpoint = 'https://hydro1.gesdisc.eosdis.nasa.gov/daac-bin/access/timeseries.cgi'
 
         if forcing_name not in self.nldas_forcings:
@@ -311,10 +314,15 @@ class siteNLDAS():
             
         # Convert the response to a pandas dataframe
         nldas_csv = StringIO(response.text)
-        skip_rows = 12 #header rows
+        # Find row in header starting with 'Date&Time' to determine how many rows to skip
+        nldas_csv.seek(0)
+        for i, line in enumerate(nldas_csv):
+            if line.startswith('Date&Time'):
+                skip_rows = i
+                break
 
         nldas_csv.seek(0)  # Reset the StringIO object to the beginning
-        nldas_data = pd.read_csv(nldas_csv, delimiter=r'\s+', skiprows=skip_rows, index_col=0)
+        nldas_data = pd.read_csv(nldas_csv, delimiter=r'\s+', skiprows=skip_rows, index_col=0, header=0)
         nldas_data.index = pd.to_datetime(nldas_data.index, format='%Y-%m-%dT%H:%M:%S', utc=True)
 
         # Return the data as a pandas series
