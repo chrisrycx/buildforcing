@@ -493,10 +493,11 @@ class siteNLDAS():
         data_notz = self.data.copy()
         data_notz.index = data_notz.index.tz_localize(None)
         ds = xr.Dataset.from_dataframe(data_notz)
-        ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
 
         # Save elevation data
-        ds['elevation'] = xr.DataArray(self.elevation, dims=[], attrs={'long_name': 'NLDAS Elevation', 'units': 'm'})        
+        ds['elevation'] = xr.DataArray(self.elevation, dims=[], attrs={'long_name': 'NLDAS Elevation', 'units': 'm'})  
+
+        ds.to_netcdf(file_path, mode='w', format='NETCDF4', engine='netcdf4')
 
         ds.close()
 
