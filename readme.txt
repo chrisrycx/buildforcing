@@ -1,4 +1,5 @@
 Version History:
+Version 0.8.2 - 2025-10-15 - Fixed bug where elevation wasn't being saved when downloading data
 version 0.8.1 - 2025-10-13 - Add option for using old NLDAS API (v0) as a backup.
 Version 0.8.0 - 2025-10-? - Updated NLDAS API endpoint and algorithm
 Version 0.7.3 - 2025-10-10 - Fixed bug in pressure correction where elevation argument name was incorrect.
