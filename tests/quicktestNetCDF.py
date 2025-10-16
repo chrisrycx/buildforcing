@@ -5,7 +5,7 @@ import os
 from buildforcing.datasets import siteNLDAS, PNNLSnotel
 from datetime import datetime
 
-site_name = 'Promontory'
+site_name = 'Hewinta'
 start_date = datetime(2020, 1, 1)
 end_date = datetime(2021, 10, 1)
 
@@ -24,7 +24,7 @@ except ValueError as e:
     print(f"No existing NLDAS data for {site_name}. Downloading...")
 
     # Download NLDAS data
-    nldas.getdata(snotel.latitude, snotel.longitude)
+    nldas.getdata(snotel.latitude, snotel.longitude, use_api_v0=True)
 
     # Save the NLDAS data to the specified path
     print(f"Saving NLDAS data for {site_name}")

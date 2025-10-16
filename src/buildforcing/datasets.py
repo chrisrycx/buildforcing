@@ -85,10 +85,12 @@ class PNNLSnotel:
         precise_locations.set_index('site_name', inplace=True)
 
         if self.site_name in precise_locations.index:
-            self.latitude = precise_locations.loc[self.site_name, 'latitude_precise']
-            self.longitude = precise_locations.loc[self.site_name, 'longitude_precise']
-            self.elevation = precise_locations.loc[self.site_name, 'elevation_precise']
-            self.precise_location = True
+            # Some sites have precise latitude = 'NA', which becomes NaN, check for that
+            if pd.notna(precise_locations.loc[self.site_name, 'latitude_precise']):
+                self.latitude = precise_locations.loc[self.site_name, 'latitude_precise']
+                self.longitude = precise_locations.loc[self.site_name, 'longitude_precise']
+                self.elevation = precise_locations.loc[self.site_name, 'elevation_precise']
+                self.precise_location = True
 
     def load_data(self):
 
