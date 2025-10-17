@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from buildforcing.snotelQC import fill_T_nldas, qc_maxmin_temperatures
 
-def raw_nldas(nldas_data: pd.Series, *args):
+def raw_nldas(nldas_data: pd.Series, *args, **kwargs) -> pd.Series:
     '''
     Just a passthru function that accepts a variable number of arguments.
     This will be the default function for downscaling that will just pass the data through when
