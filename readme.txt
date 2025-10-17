@@ -1,4 +1,5 @@
 Version History:
+Version 0.8.4 - 2025-10-18 - Fall back to loading elevation data from file if not in netCDF
 Version 0.8.3 - 2025-10-16 - Fixed bug where precise location data had Nan values and would crash the program.
 Version 0.8.2 - 2025-10-15 - Fixed bug where elevation wasn't being saved when downloading data
 version 0.8.1 - 2025-10-13 - Add option for using old NLDAS API (v0) as a backup.

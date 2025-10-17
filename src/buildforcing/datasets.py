@@ -478,7 +478,11 @@ class siteNLDAS():
         self.data.index = self.data.index.tz_localize('UTC')
 
         # Get the elevation from the dataset
-        self.elevation = ds['elevation'].values.item()
+        # Some files may not have elevation data, so load using method if error
+        try:
+            self.elevation = ds['elevation'].values.item()
+        except KeyError:
+            self.getNLDASElevation()
         
         ds.close()
 

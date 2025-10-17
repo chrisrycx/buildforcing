@@ -170,10 +170,8 @@ class TestdownscalePrecipV1(unittest.TestCase):
         '''
         nldas = siteNLDAS(
             self.snotel.site_name,
-            self.snotel.latitude, 
-            self.snotel.longitude, 
             start_date=datetime(2016,1,1,0), 
-            end_date=datetime(2019,12,31,23),
+            end_date=datetime(2019,12,31,23), 
             storage_path=os.getenv('NLDAS_PATH')
         )
         nldas.loadNetCDF()
@@ -187,8 +185,11 @@ class TestdownscalePrecipV1(unittest.TestCase):
 
     def test_downscalePrecipV1(self):
 
-        nldas = siteNLDAS(self.snotel.site_name,self.snotel.latitude, self.snotel.longitude, 
-                          start_date=datetime(2016,1,2,0), end_date=datetime(2019,12,30,23), storage_path=os.getenv('NLDAS_PATH'))
+        nldas = siteNLDAS(self.snotel.site_name, 
+                          start_date=datetime(2016,1,2,0), 
+                          end_date=datetime(2019,12,30,23), 
+                          storage_path=os.getenv('NLDAS_PATH')
+                          )
         nldas.loadNetCDF()
         nldas_precip = nldas.data['Rainf']
 
