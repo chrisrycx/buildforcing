@@ -14,6 +14,12 @@ from io import StringIO, TextIOWrapper
 from timezonefinder import TimezoneFinder
 import os
 import xarray as xr
+import numpy as np
+
+# Flag values for data quality and interpolation status
+FLAG_OBSERVED = 0              # Original measured/modeled data
+FLAG_TIME_INTERP = 1           # Temporally interpolated
+FLAG_GAP_FILLED = 2            # Gap-filled using other methods
 
 class SnotelData(TypedDict):
     T_max_C: float
@@ -561,7 +567,7 @@ class siteForcings:
         self.forcings.index.name = 'time'
 
         self.build_methods = {}
-        self.qc_flags = {}
+        self.flag_data = {}  # Dictionary to store flag DataFrames for each forcing variable
 
     def loadNetCDF(self, storage_path: str):
         '''
@@ -594,8 +600,33 @@ class siteForcings:
             output_ds[forcing_name].attrs['long_name'] = self.allowed_forcings_metadata[forcing_name].long_name
             output_ds[forcing_name].attrs['units'] = self.allowed_forcings_metadata[forcing_name].units
 
-            if self.qc_flags.get(forcing_name) is not None:
-                output_ds[forcing_name].attrs['qc_flags'] = self.qc_flags[forcing_name]
+        # Add flag variables for each forcing that has flag data
+        for forcing_name, flag_series in self.flag_data.items():
+            # Remove timezone from flag data index
+            flag_series_notz = flag_series.copy()
+            flag_series_notz.index = flag_series_notz.index.tz_localize(None)
+
+            # Convert to xarray DataArray and expand dimensions to match forcing data
+            flag_var_name = f'{forcing_name}_flag'
+            flag_da = xr.DataArray.from_series(flag_series_notz)
+            flag_da = flag_da.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]}, axis=[1, 2])
+
+            # Add to dataset
+            output_ds[flag_var_name] = flag_da
+
+            # Add CF-compliant metadata
+            output_ds[flag_var_name].attrs['long_name'] = f'Quality flag for {self.allowed_forcings_metadata[forcing_name].long_name}'
+            output_ds[flag_var_name].attrs['standard_name'] = 'status_flag'
+            output_ds[flag_var_name].attrs['flag_values'] = np.array([FLAG_OBSERVED, FLAG_TIME_INTERP, FLAG_GAP_FILLED], dtype='int8')
+            output_ds[flag_var_name].attrs['flag_meanings'] = 'observed temporally_interpolated gap_filled'
+            output_ds[flag_var_name].attrs['valid_range'] = np.array([0, 2], dtype='int8')
+            output_ds[flag_var_name].attrs['comment'] = 'Flag indicates data quality and interpolation methods applied'
+
+            # Link flag variable to data variable using ancillary_variables attribute
+            if 'ancillary_variables' in output_ds[forcing_name].attrs:
+                output_ds[forcing_name].attrs['ancillary_variables'] += f' {flag_var_name}'
+            else:
+                output_ds[forcing_name].attrs['ancillary_variables'] = flag_var_name
 
         return output_ds
 
@@ -630,14 +661,53 @@ class siteForcings:
         self.build_methods[forcing_name] = build_method
         self.forcings[forcing_name] = forcing_data
 
-    def setQCFlag(self, forcing_name, qc_flag):
+    def setQCFlag(self, forcing_name, flag_data=None):
         '''
-        Set the QC flag for a given forcing name.
+        Set the quality/interpolation flags for a given forcing name.
+
+        Parameters
+        ----------
+        forcing_name : str
+            Name of the forcing variable
+        flag_data : pd.Series or pd.DataFrame or np.ndarray, optional
+            Flag values for each timestep. Can be:
+            - pd.Series with same index as self.forcings
+            - pd.DataFrame (will use first column)
+            - np.ndarray with same length as self.forcings
+            - None to initialize all flags to FLAG_OBSERVED (0)
+
+            If not provided, all flags default to FLAG_OBSERVED (0).
         '''
         # Ensure the forcing name is in the build methods
         if forcing_name not in self.build_methods:
-            raise ValueError(f"Build method for {forcing_name} must be set before setting the QC flag")
-        self.qc_flags[forcing_name] = qc_flag
+            raise ValueError(f"Build method for {forcing_name} must be set before setting the flag")
+
+        # Process and store flag data
+        if flag_data is None:
+            # Initialize all flags to FLAG_OBSERVED (0)
+            flags = pd.Series(FLAG_OBSERVED, index=self.forcings.index, dtype='int8', name=f'{forcing_name}_flag')
+        elif isinstance(flag_data, pd.Series):
+            # Validate index matches
+            if not flag_data.index.equals(self.forcings.index):
+                raise ValueError(f"Flag data index must match forcing data index for {forcing_name}")
+            flags = flag_data.astype('int8')
+            flags.name = f'{forcing_name}_flag'
+        elif isinstance(flag_data, pd.DataFrame):
+            # Use first column if DataFrame provided
+            if not flag_data.index.equals(self.forcings.index):
+                raise ValueError(f"Flag data index must match forcing data index for {forcing_name}")
+            flags = flag_data.iloc[:, 0].astype('int8')
+            flags.name = f'{forcing_name}_flag'
+        elif isinstance(flag_data, np.ndarray):
+            # Create Series from array
+            if len(flag_data) != len(self.forcings.index):
+                raise ValueError(f"Flag data length ({len(flag_data)}) must match forcing data length ({len(self.forcings.index)})")
+            flags = pd.Series(flag_data, index=self.forcings.index, dtype='int8', name=f'{forcing_name}_flag')
+        else:
+            raise TypeError(f"flag_data must be pd.Series, pd.DataFrame, np.ndarray, or None. Got {type(flag_data)}")
+
+        # Store the flag data
+        self.flag_data[forcing_name] = flags
 
     def saveNetCDF(self, storage_path: str):
         '''
