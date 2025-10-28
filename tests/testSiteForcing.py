@@ -23,6 +23,10 @@ class TestSiteForcings(unittest.TestCase):
         Tair_data = np.array([1, 2, 3, 4]*6).reshape(24,1,1)
         Qair_data = np.array([1, 2, 3, 4]*6).reshape(24,1,1)
 
+        # Create dummy forcing flags
+        Tair_flags = np.array([0]*24).reshape(24,1,1)
+        Qair_flags = np.array([0]*24).reshape(24,1,1)
+
         # Assign data to the xarray Dataset
         self.target = xr.Dataset(
             {
@@ -30,6 +34,8 @@ class TestSiteForcings(unittest.TestCase):
             "Qair": (["time","latitude","longitude"], Qair_data),
             "reference_height": (["latitude","longitude"], ref_height),
             "canopy_height": (["latitude","longitude"], [[0]]),
+            "Tair_flag": (["time","latitude","longitude"], Tair_flags),
+            "Qair_flag": (["time","latitude","longitude"], Qair_flags),
             },
             coords={
             "time": times,
@@ -69,10 +75,11 @@ class TestSiteForcings(unittest.TestCase):
         # Create some dummy forcing
         forcing1 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
         forcing2 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
+        forcing_flags = pd.Series(0, index=forcing1.index)
 
         # Add the forcing to the SiteForcing object
-        site.setForcing("Tair", "K", "test", forcing1, reference_height=10.0)
-        site.setForcing("Qair", "kg/kg", "test2", forcing2, reference_height=10.0)
+        site.setForcing("Tair", "K", "test", forcing1, forcing_flags, reference_height=10.0)
+        site.setForcing("Qair", "kg/kg", "test2", forcing2, forcing_flags, reference_height=10.0)
 
         ds = site.exportDataset()
 
@@ -97,7 +104,8 @@ class TestSiteForcings(unittest.TestCase):
 
         # Create forcing data
         forcing = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
-        site.setForcing("Tair", "K", "test", forcing, reference_height=10.0)
+        forcing_flags = pd.Series(0, index=forcing.index)
+        site.setForcing("Tair", "K", "test", forcing, forcing_flags, reference_height=10.0)
 
         # Test 1: Set flags with None (should default to FLAG_OBSERVED)
         site.setQCFlag("Tair")
@@ -147,7 +155,8 @@ class TestSiteForcings(unittest.TestCase):
 
         # Create forcing data for Tair only
         forcing = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
-        site.setForcing("Tair", "K", "test", forcing, reference_height=10.0)
+        forcing_flags = pd.Series(0, index=forcing.index)
+        site.setForcing("Tair", "K", "test", forcing, forcing_flags, reference_height=10.0)
 
         # Try to set flags for a variable that doesn't exist
         with self.assertRaises(ValueError) as context:
@@ -170,7 +179,8 @@ class TestSiteForcings(unittest.TestCase):
 
         # Create forcing data
         forcing = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
-        site.setForcing("Tair", "K", "test", forcing, reference_height=10.0)
+        forcing_flags = pd.Series(0, index=forcing.index)
+        site.setForcing("Tair", "K", "test", forcing, forcing_flags, reference_height=10.0)
 
         # Test valid flags (should work without error)
         valid_flags = np.array([FLAG_OBSERVED]*10 + [FLAG_TIME_INTERP]*10 + [FLAG_GAP_FILLED]*4, dtype='int8')

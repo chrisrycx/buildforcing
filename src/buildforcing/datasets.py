@@ -609,6 +609,7 @@ class siteForcings:
             # Convert to xarray DataArray and expand dimensions to match forcing data
             flag_var_name = f'{forcing_name}_flag'
             flag_da = xr.DataArray.from_series(flag_series_notz)
+            flag_da = flag_da.rename({'index': 'time'})
             flag_da = flag_da.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]}, axis=[1, 2])
 
             # Add to dataset
@@ -634,7 +635,8 @@ class siteForcings:
                    forcing_name: str,
                    forcing_units: str, 
                    build_method:str, 
-                   forcing_data: pd.Series, 
+                   forcing_data: pd.Series,
+                   forcing_flags: pd.Series, 
                    reference_height: float
                    ):
         '''
@@ -660,6 +662,7 @@ class siteForcings:
         
         self.build_methods[forcing_name] = build_method
         self.forcings[forcing_name] = forcing_data
+        self.setQCFlag(forcing_name, forcing_flags)
 
     def setQCFlag(self, forcing_name, flag_data=None):
         '''

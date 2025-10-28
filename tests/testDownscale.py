@@ -116,14 +116,11 @@ class TestDownscaleTairV1(unittest.TestCase):
         # Call the function
         result = downscaleTairV1(nldas_data, snotel_Tmax, snotel_Tmin)
 
-        # Assert the result is a pandas Series
-        self.assertIsInstance(result, pd.Series)
-
         # Assert the result has the same index as the input NLDAS data
         self.assertTrue(result.index.equals(nldas_data.index))
 
         # Assert the result values are not NaN
-        self.assertFalse(result.isna().any())
+        self.assertFalse(result['Tair'].isna().any())
 
         # Expected result values
         expected_temp_C = [0,2,4,0,2,1,4,4]
@@ -135,7 +132,7 @@ class TestDownscaleTairV1(unittest.TestCase):
 
         # Assert each value within a tolerance
         for i in range(len(result)):
-            self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
+            self.assertAlmostEqual(result['Tair'].iloc[i], expected_result.iloc[i], places=2)
 
     def test_missingday(self):
         '''
@@ -153,8 +150,8 @@ class TestDownscaleTairV1(unittest.TestCase):
 
         # Assert each value within a tolerance
         for i in range(len(result)):
-            print(f"Result C: {result.iloc[i] - 273.15}, Expected C: {expected_result.iloc[i] - 273.15}")
-            self.assertAlmostEqual(result.iloc[i], expected_result.iloc[i], places=2)
+            #print(f"Result C: {result.iloc[i] - 273.15}, Expected C: {expected_result.iloc[i] - 273.15}")
+            self.assertAlmostEqual(result['Tair'].iloc[i], expected_result.iloc[i], places=2)
 
 
 class TestdownscalePrecipV1(unittest.TestCase):
@@ -199,16 +196,16 @@ class TestdownscalePrecipV1(unittest.TestCase):
         self.assertEqual(nldas_corrected.index.tz, timezone.utc)
         
         # Verify output does not have NaNs
-        self.assertFalse(nldas_corrected.isna().any())
+        self.assertFalse(nldas_corrected['Rainf'].isna().any())
 
         # Verify sum of 2016 precip is close to SNOTEL
         snotel_2016_sum = self.snotel_precip.loc['2016'].sum()
-        nldas_2016_sum = nldas_corrected.loc['2016'].sum()
+        nldas_2016_sum = nldas_corrected['Rainf'].loc['2016'].sum()
         self.assertAlmostEqual(snotel_2016_sum, nldas_2016_sum, delta=1)
 
         # Verify total precip in 2018, where SNOTEL data is missing, is similar to total in 2019
-        nldas_2018_sum = nldas_corrected.loc['2018'].sum()
-        nldas_2019_sum = nldas_corrected.loc['2019'].sum()
+        nldas_2018_sum = nldas_corrected['Rainf'].loc['2018'].sum()
+        nldas_2019_sum = nldas_corrected['Rainf'].loc['2019'].sum()
         self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.2)  # Allow 20% difference
 
 class TestpartitionPrecipV0(unittest.TestCase):

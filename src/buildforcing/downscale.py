@@ -5,17 +5,23 @@ import pandas as pd
 import numpy as np
 from buildforcing.snotelQC import fill_T_nldas, qc_maxmin_temperatures
 
-def raw_nldas(nldas_data: pd.Series, *args, **kwargs) -> pd.Series:
+def raw_nldas(nldas_data: pd.Series, *args, **kwargs) -> pd.DataFrame:
     '''
     Just a passthru function that accepts a variable number of arguments.
     This will be the default function for downscaling that will just pass the data through when
     another function has not been specified.
+
+    Returns a DataFrame with columns for data and flags.
     '''
     print(f'Using raw NLDAS data for {nldas_data.name}')
-    
-    return nldas_data
 
-def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
+    result_df = pd.DataFrame({
+        nldas_data.name: nldas_data,
+        'flags': 0
+    })
+    return result_df
+
+def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.DataFrame:
     '''
     Downscale the NLDAS temperature data to the Snotel site using snotel max and min temperature data.
     V0 - This algorithm was my first approach to downscaling temperature, it appear problematic in cases.
@@ -24,13 +30,15 @@ def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     Output is in K with UTC timezone as per the target dataframe.
 
+    Returns a DataFrame with columns for downscaled temperature and flags.
+
     '''
     # Check if the input data is timezone aware
     if nldas_Tair_K.index.tz is None:
         raise ValueError("NLDAS data must be timezone aware (UTC)")
     if snotel_Tmax_C.index.tz is None:
         raise ValueError("Snotel Tmax data must be timezone aware")
-    
+
     # Convert to snotel timezone
     nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_Tmax_C.index.tz)
 
@@ -79,9 +87,15 @@ def downscaleTairV0(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     # Change timezone back to UTC
     nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
 
-    return nldas_Tair_K_downscaled
+    # Create result dataframe
+    result_df = pd.DataFrame({
+        'Tair': nldas_Tair_K_downscaled,
+        'flags': 0
+    })
 
-def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.Series:
+    return result_df
+
+def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tmin_C: pd.Series) -> pd.DataFrame:
     '''
     Downscale the NLDAS temperature data to the Snotel site using snotel max and min temperature data.
 
@@ -91,13 +105,15 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     Output is in K with UTC timezone as per the target dataframe.
 
+    Returns a DataFrame with columns for downscaled temperature and flags.
+
     '''
     # Check if the input data is timezone aware
     if nldas_Tair_K.index.tz is None:
         raise ValueError("NLDAS data must be timezone aware (UTC)")
     if snotel_Tmax_C.index.tz is None:
         raise ValueError("Snotel Tmax data must be timezone aware")
-    
+
     # Convert to snotel timezone
     nldas_Tair_K = nldas_Tair_K.tz_convert(snotel_Tmax_C.index.tz)
 
@@ -138,15 +154,21 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     nldas_Tair_K = nldas_Tair_K.bfill()
 
     # Finally calculate the downscaled temperature
-    nldas_Tair_K['corrected'] = (nldas_Tair_K['nldas_Tair'] - nldas_Tair_K['nldas_daily_min']) * nldas_Tair_K['rescale'] + nldas_Tair_K['snotel_Tmin'] 
+    nldas_Tair_K['corrected'] = (nldas_Tair_K['nldas_Tair'] - nldas_Tair_K['nldas_daily_min']) * nldas_Tair_K['rescale'] + nldas_Tair_K['snotel_Tmin']
     nldas_Tair_K_downscaled = nldas_Tair_K['corrected']
 
     # Change timezone back to UTC
     nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
 
-    return nldas_Tair_K_downscaled
+    # Create result dataframe
+    result_df = pd.DataFrame({
+        'Tair': nldas_Tair_K_downscaled,
+        'flags': 0
+    })
 
-def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.Series:
+    return result_df
+
+def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.DataFrame:
     '''
         Downscale the NLDAS precipitation data to the Snotel site using snotel precipitation data.
         Due to differences in precipitation timing between NLDAS and snotel, the correction is based on the monthly
@@ -161,13 +183,15 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
 
         Output is in hourly total precip [mm = kg/m2] with UTC timezone as per the target dataframe.
 
+        Returns a DataFrame with columns for downscaled precipitation and flags.
+
     '''
     # Check if the input data is timezone aware
     if nldas_hourly_precip_mm.index.tz is None:
         raise ValueError("NLDAS data must be timezone aware (UTC)")
     if snotel_daily_precip_mm.index.tz is None:
         raise ValueError("Snotel precipitation data must be timezone aware")
-    
+
     # Convert to snotel timezone
     nldas_hourly_precip_mm = nldas_hourly_precip_mm.tz_convert(snotel_daily_precip_mm.index.tz)
 
@@ -189,14 +213,14 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Merge the monthly data to find the scaling factor
     nldas_monthly.name = 'nldas'
     nldas_monthly_df = pd.merge(nldas_monthly, snotel_monthly, how='left', left_index=True, right_index=True)
-   
+
 
     # Perform regression analysis to places where snotel missing data exceeds a threshold
     nan_threshold = 4  # Per month
     if nldas_monthly_df['snotel_nan'].max() > 4:
         # Use only months where number of NaN values is below the threshold
         regression_data = nldas_monthly_df[nldas_monthly_df['snotel_nan'] <= nan_threshold]
-        
+
         # Perform linear regression using numpy
         slope, intercept = np.polyfit(regression_data['nldas'], regression_data['snotel'], 1)
         linear_model = np.poly1d((slope, intercept))
@@ -219,7 +243,7 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Create a dataframe with the scaling factor for each hour
     nldas_hourly_precip_mm.name = 'nldas_hourly'
     nldas_hourly = pd.merge(nldas_hourly_precip_mm, nldas_scaling_factor, how='left', left_index=True, right_index=True)
-    
+
     # Forward fill the scaling factor to fill in any missing values
     # This is required even when upsampling the scaling factor to hourly data because the upsampled data may not have the same index as the original data
     nldas_hourly['scaling_factor'] = nldas_hourly['scaling_factor'].ffill()
@@ -230,7 +254,13 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Change timezone back to UTC
     nldas_hourly = nldas_hourly.tz_convert('UTC')
 
-    return nldas_hourly['downscaled']
+    # Create result dataframe
+    result_df = pd.DataFrame({
+        'Rainf': nldas_hourly['downscaled'],
+        'flags': 0
+    })
+
+    return result_df
     
 def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''
@@ -238,7 +268,7 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     V0: Just partition if Tair >= 0 C, else snow.
     Input indexes must match.
 
-    Output is a DataFrame with columns 'rain_mm' and 'snow_mm'.
+    Output is a DataFrame with columns 'rain_mm', 'rain_flags', 'snow_mm', 'snow_flags'.
 
     '''
     # Change to C from K
@@ -251,18 +281,24 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     # Combine the input data into a DataFrame
     data = pd.concat([precip_mm, Tair_C], axis=1)
     data.columns = ['precip_mm', 'Tair_C']
-    
+
     # Partition the precipitation
     data['rain_mm'] = data['precip_mm'].where(data['Tair_C'] >= 0, 0)
     data['snow_mm'] = data['precip_mm'].where(data['Tair_C'] < 0, 0)
 
-    return data[['rain_mm', 'snow_mm']]
+    # Add flag columns
+    data['rain_flags'] = 0
+    data['snow_flags'] = 0
 
-def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.Series:
+    return data[['rain_mm', 'rain_flags', 'snow_mm', 'snow_flags']]
+
+def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.DataFrame:
     '''
     Downscale pressure following Chen 2024, which appears to use the hydrostatic equation.
     Ideally Tair should be the average temperature between the two elevations in the atmosphere.
     Assumes input data indexes match.
+
+    Returns a DataFrame with columns for downscaled pressure and flags.
     '''
     # Constants
     g = 9.81  # m/s2
@@ -271,7 +307,13 @@ def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel
     # Calculate the pressure at the Snotel site using the hydrostatic equation
     P_snotel = nldas_Psurf_Pa * np.exp(-1*g*(snotel_elevation_m - nldas_elevation_m) / (R_d*Tair_avg_K))
 
-    return P_snotel
+    # Create result dataframe
+    result_df = pd.DataFrame({
+        'Psurf': P_snotel,
+        'flags': 0
+    })
+
+    return result_df
 
 def getDownscaleFunction(variable_name: str, version: int = 0) -> callable:
     '''

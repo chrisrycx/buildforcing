@@ -90,28 +90,29 @@ class SiteBuilder:
         self.model_forcings = siteForcings(self.site_name, self.start_date, self.end_date, self.snotel.latitude, self.snotel.longitude, 10)
 
         # Corrections/Downscaling
-        Tair_corrected = self.Tair_correction(self.nldas.data['Tair'], self.snotel.data['T_max_C'], self.snotel.data['T_min_C'])
-        Qair_corrected = self.Qair_correction(self.nldas.data['Qair'], Tair_corrected)
-        Psurf_corrected = self.Psurf_correction(self.nldas.data['PSurf'], self.nldas.data['Tair'], snotel_elevation_m=self.snotel.elevation, nldas_elevation_m=self.nldas.elevation)
-        swrad_corrected = self.swrad_correction(self.nldas.data['SWdown'])
-        lwrad_corrected = self.lwrad_correction(self.nldas.data['LWdown'])
-        precip_corrected = self.Rainf_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
-        precip_partitioned = self.precip_partition(precip_corrected, Tair_corrected)
+        Tair = self.Tair_correction(self.nldas.data['Tair'], self.snotel.data['T_max_C'], self.snotel.data['T_min_C'])
+        Qair = self.Qair_correction(self.nldas.data['Qair'], Tair['Tair'])
+        Psurf = self.Psurf_correction(self.nldas.data['PSurf'], self.nldas.data['Tair'], snotel_elevation_m=self.snotel.elevation, nldas_elevation_m=self.nldas.elevation)
+        swrad = self.swrad_correction(self.nldas.data['SWdown'])
+        lwrad = self.lwrad_correction(self.nldas.data['LWdown'])
+        precip_total = self.Rainf_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
+        precip = self.precip_partition(precip_total['Rainf'], Tair['Tair'])
 
         # Create a string describing precip processing
         precip_processing = f'Correction: {self.Rainf_correction.__name__} Partition: {self.precip_partition.__name__}'
 
         # Combine wind components
         nldas_wind = (self.nldas.data.Wind_N**2 + self.nldas.data.Wind_E**2)**0.5
+        nldas_wind_flags = pd.Series(0, index=nldas_wind.index)
 
         # Set forcings
-        self.model_forcings.setForcing('Tair', 'K', self.Tair_correction.__name__, Tair_corrected, 10)
-        self.model_forcings.setForcing('Qair', 'kg/kg', self.Qair_correction.__name__, Qair_corrected, 10)
-        self.model_forcings.setForcing('Psurf', 'Pa', self.Psurf_correction.__name__, Psurf_corrected, 10)
-        self.model_forcings.setForcing('Rainf', 'kg/m2/s', precip_processing, precip_partitioned['rain_mm'] / 3600, 10)
-        self.model_forcings.setForcing('Snowf', 'kg/m2/s', precip_processing, precip_partitioned['snow_mm'] / 3600, 10)
-        self.model_forcings.setForcing('SWdown', 'W/m2', self.swrad_correction.__name__, swrad_corrected, 10)
-        self.model_forcings.setForcing('LWdown', 'W/m2', self.lwrad_correction.__name__, lwrad_corrected, 10)
-        self.model_forcings.setForcing('Wind', 'm/s', 'Raw Wind', nldas_wind, 10)
+        self.model_forcings.setForcing('Tair', 'K', self.Tair_correction.__name__, Tair['Tair'],Tair['flags'], 10)
+        self.model_forcings.setForcing('Qair', 'kg/kg', self.Qair_correction.__name__, Qair['Qair'], Qair['flags'], 10)
+        self.model_forcings.setForcing('Psurf', 'Pa', self.Psurf_correction.__name__, Psurf['Psurf'], Psurf['flags'], 10)
+        self.model_forcings.setForcing('Rainf', 'kg/m2/s', precip_processing, precip['rain_mm'] / 3600, precip['rain_flags'], 10)
+        self.model_forcings.setForcing('Snowf', 'kg/m2/s', precip_processing, precip['snow_mm'] / 3600, precip['snow_flags'], 10)
+        self.model_forcings.setForcing('SWdown', 'W/m2', self.swrad_correction.__name__, swrad['SWdown'], swrad['flags'], 10)
+        self.model_forcings.setForcing('LWdown', 'W/m2', self.lwrad_correction.__name__, lwrad['LWdown'], lwrad['flags'], 10)
+        self.model_forcings.setForcing('Wind', 'm/s', 'Raw Wind', nldas_wind, nldas_wind_flags, 10)
 
         return self.model_forcings
