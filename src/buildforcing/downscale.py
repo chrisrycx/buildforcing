@@ -254,8 +254,8 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
 
     # Generate flags based on nans in daily snotel data
-    nldas_hourly = pd.merge(nldas_hourly, snotel_daily_df['snotel_nan'], how='left', left_index=True, right_index=True)
-    nldas_hourly = nldas_hourly.ffill()
+    nldas_hourly = pd.merge(nldas_hourly, snotel_daily_df['snotel_nan'].astype(int), how='left', left_index=True, right_index=True)
+    nldas_hourly['snotel_nan'] = nldas_hourly['snotel_nan'].ffill()
     nldas_hourly['flags'] = 0
     nldas_hourly.loc[nldas_hourly['snotel_nan'] == 1, 'flags'] = 2  # Flag as filled data
 
@@ -311,7 +311,7 @@ def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel
 
     # Create result dataframe
     result_df = pd.DataFrame({
-        'Psurf': P_snotel,
+        'PSurf': P_snotel,  # Stupid bug, this needs to be PSurf to match expected output not Psurf as is used in forcing
         'flags': 0
     })
 

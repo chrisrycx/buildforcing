@@ -15,7 +15,7 @@ start_date = date(2015, 10, 1)
 end_date = date(2016, 10, 1)
 
 # Create site builder for the specified site
-build_settings = '00000000'  
+build_settings = '01010010'  
 forcing_builder = SiteBuilder(site_name, settings_str=build_settings)
 
 # Check if date range is valid
