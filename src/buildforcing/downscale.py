@@ -155,18 +155,20 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
 
     # Finally calculate the downscaled temperature
     nldas_Tair_K['corrected'] = (nldas_Tair_K['nldas_Tair'] - nldas_Tair_K['nldas_daily_min']) * nldas_Tair_K['rescale'] + nldas_Tair_K['snotel_Tmin']
-    nldas_Tair_K_downscaled = nldas_Tair_K['corrected']
+    
+    # Generate flags for the downscaled data
+    T_qc_flags['flags'] = 0
+    T_qc_flags.loc[T_qc_flags['Tmax_bad'] | T_qc_flags['Tmin_bad'], 'flags'] = 2 # Flag as filled data
+
+    # Generate combined output dataframe
+    output_df = pd.merge(nldas_Tair_K['corrected'], T_qc_flags['flags'], how='left', left_index=True, right_index=True)
+    output_df = output_df.ffill()
+    output_df = output_df.rename(columns={'corrected': 'Tair'})
 
     # Change timezone back to UTC
-    nldas_Tair_K_downscaled = nldas_Tair_K_downscaled.tz_convert('UTC')
+    output_df = output_df.tz_convert('UTC')
 
-    # Create result dataframe
-    result_df = pd.DataFrame({
-        'Tair': nldas_Tair_K_downscaled,
-        'flags': 0
-    })
-
-    return result_df
+    return output_df
 
 def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm: pd.Series) -> pd.DataFrame:
     '''
@@ -251,16 +253,16 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     # Multiply the NLDAS hourly data by the scaling factor for each hour
     nldas_hourly['downscaled'] = nldas_hourly['nldas_hourly'] * nldas_hourly['scaling_factor']
 
+    # Generate flags based on nans in daily snotel data
+    nldas_hourly = pd.merge(nldas_hourly, snotel_daily_df['snotel_nan'], how='left', left_index=True, right_index=True)
+    nldas_hourly = nldas_hourly.ffill()
+    nldas_hourly['flags'] = 0
+    nldas_hourly.loc[nldas_hourly['snotel_nan'] == 1, 'flags'] = 2  # Flag as filled data
+
     # Change timezone back to UTC
     nldas_hourly = nldas_hourly.tz_convert('UTC')
 
-    # Create result dataframe
-    result_df = pd.DataFrame({
-        'Rainf': nldas_hourly['downscaled'],
-        'flags': 0
-    })
-
-    return result_df
+    return nldas_hourly[['downscaled', 'flags']].rename(columns={'downscaled': 'Rainf'})
     
 def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
     '''

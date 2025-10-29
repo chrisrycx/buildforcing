@@ -73,8 +73,8 @@ class TestSiteForcings(unittest.TestCase):
         site = siteForcings("test_site", datetime(2023,1,1,0), datetime(2023,1,1,23,0), 35.0, -104.5)
 
         # Create some dummy forcing
-        forcing1 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
-        forcing2 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC"))
+        forcing1 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC")).rename_axis('time')
+        forcing2 = pd.Series([1, 2, 3, 4]*6, index=pd.date_range("2023-01-01", periods=24, freq="h", tz="UTC")).rename_axis('time')
         forcing_flags = pd.Series(0, index=forcing1.index)
 
         # Add the forcing to the SiteForcing object
@@ -124,7 +124,7 @@ class TestSiteForcings(unittest.TestCase):
         self.assertEqual(site.flag_data["Tair"][20], FLAG_OBSERVED)
 
         # Test 3: Set flags with pandas Series
-        flags_series = pd.Series(FLAG_OBSERVED, index=site.forcings.index, dtype='int8')
+        flags_series = pd.Series(FLAG_OBSERVED, index=forcing.index, dtype='int8')
         flags_series.iloc[5:8] = FLAG_TIME_INTERP
         site.setQCFlag("Tair", flag_data=flags_series)
 

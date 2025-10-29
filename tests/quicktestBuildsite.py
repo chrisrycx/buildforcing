@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 buildforcing_version = 'test'  #Specify manually since project toml doesn't change
 
-site_name = 'Columbine'
+site_name = 'Quemazon'
 useValidDates = False  #If true the custom dates below are ignored
 start_date = date(2015, 10, 1)
 end_date = date(2016, 10, 1)

@@ -153,6 +153,27 @@ class TestDownscaleTairV1(unittest.TestCase):
             #print(f"Result C: {result.iloc[i] - 273.15}, Expected C: {expected_result.iloc[i] - 273.15}")
             self.assertAlmostEqual(result['Tair'].iloc[i], expected_result.iloc[i], places=2)
 
+    def test_downscaleFlags(self):
+        '''
+        Test that flags are set correctly in downscaling.
+        '''
+        result = downscaleTairV1(self.nldas_Tair_K, self.snotel_Tmax_C, self.snotel_Tmin_C)
+
+        # Check that flags are set correctly
+        flags = result['flags']
+
+        # First two days should have observed flags
+        for i in range(8):
+            self.assertEqual(flags.iloc[i], 0)  # FLAG_OBSERVED
+
+        # The third day should have gap-filled flags due to missing SNOTEL data
+        for i in range(8,12):
+            self.assertEqual(flags.iloc[i], 2)  # FLAG_GAP_FILLED
+
+        # The fourth day should have observed flags
+        for i in range(12,16):
+            self.assertEqual(flags.iloc[i], 0)  # FLAG_OBSERVED
+
 
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
@@ -207,6 +228,10 @@ class TestdownscalePrecipV1(unittest.TestCase):
         nldas_2018_sum = nldas_corrected['Rainf'].loc['2018'].sum()
         nldas_2019_sum = nldas_corrected['Rainf'].loc['2019'].sum()
         self.assertAlmostEqual(nldas_2018_sum, nldas_2019_sum, delta=nldas_2019_sum*0.2)  # Allow 20% difference
+
+        # Verify flags in most of 2018 are set to gap-filled
+        flags_2018 = nldas_corrected['flags'].loc['2018']
+        self.assertTrue((flags_2018 == 2).count() > 100)  # FLAG_GAP_FILLED
 
 class TestpartitionPrecipV0(unittest.TestCase):
     def setUp(self):

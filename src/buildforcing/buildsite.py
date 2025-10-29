@@ -108,7 +108,7 @@ class SiteBuilder:
         # Set forcings
         self.model_forcings.setForcing('Tair', 'K', self.Tair_correction.__name__, Tair['Tair'],Tair['flags'], 10)
         self.model_forcings.setForcing('Qair', 'kg/kg', self.Qair_correction.__name__, Qair['Qair'], Qair['flags'], 10)
-        self.model_forcings.setForcing('Psurf', 'Pa', self.Psurf_correction.__name__, Psurf['Psurf'], Psurf['flags'], 10)
+        self.model_forcings.setForcing('Psurf', 'Pa', self.Psurf_correction.__name__, Psurf['PSurf'], Psurf['flags'], 10)
         self.model_forcings.setForcing('Rainf', 'kg/m2/s', precip_processing, precip['rain_mm'] / 3600, precip['rain_flags'], 10)
         self.model_forcings.setForcing('Snowf', 'kg/m2/s', precip_processing, precip['snow_mm'] / 3600, precip['snow_flags'], 10)
         self.model_forcings.setForcing('SWdown', 'W/m2', self.swrad_correction.__name__, swrad['SWdown'], swrad['flags'], 10)

@@ -609,7 +609,7 @@ class siteForcings:
             # Convert to xarray DataArray and expand dimensions to match forcing data
             flag_var_name = f'{forcing_name}_flag'
             flag_da = xr.DataArray.from_series(flag_series_notz)
-            flag_da = flag_da.rename({'index': 'time'})
+            #flag_da = flag_da.rename({'index': 'time'})
             flag_da = flag_da.expand_dims({'latitude': [self.latitude], 'longitude': [self.longitude]}, axis=[1, 2])
 
             # Add to dataset
@@ -688,24 +688,24 @@ class siteForcings:
         # Process and store flag data
         if flag_data is None:
             # Initialize all flags to FLAG_OBSERVED (0)
-            flags = pd.Series(FLAG_OBSERVED, index=self.forcings.index, dtype='int8', name=f'{forcing_name}_flag')
+            flags = pd.Series(FLAG_OBSERVED, index=self.forcings[forcing_name].index, dtype='int8', name=f'{forcing_name}_flag')
         elif isinstance(flag_data, pd.Series):
             # Validate index matches
-            if not flag_data.index.equals(self.forcings.index):
+            if not flag_data.index.equals(self.forcings[forcing_name].index):
                 raise ValueError(f"Flag data index must match forcing data index for {forcing_name}")
             flags = flag_data.astype('int8')
             flags.name = f'{forcing_name}_flag'
         elif isinstance(flag_data, pd.DataFrame):
             # Use first column if DataFrame provided
-            if not flag_data.index.equals(self.forcings.index):
+            if not flag_data.index.equals(self.forcings[forcing_name].index):
                 raise ValueError(f"Flag data index must match forcing data index for {forcing_name}")
             flags = flag_data.iloc[:, 0].astype('int8')
             flags.name = f'{forcing_name}_flag'
         elif isinstance(flag_data, np.ndarray):
             # Create Series from array
-            if len(flag_data) != len(self.forcings.index):
-                raise ValueError(f"Flag data length ({len(flag_data)}) must match forcing data length ({len(self.forcings.index)})")
-            flags = pd.Series(flag_data, index=self.forcings.index, dtype='int8', name=f'{forcing_name}_flag')
+            if len(flag_data) != len(self.forcings[forcing_name].index):
+                raise ValueError(f"Flag data length ({len(flag_data)}) must match forcing data length ({len(self.forcings[forcing_name].index)})")
+            flags = pd.Series(flag_data, index=self.forcings[forcing_name].index, dtype='int8', name=f'{forcing_name}_flag')
         else:
             raise TypeError(f"flag_data must be pd.Series, pd.DataFrame, np.ndarray, or None. Got {type(flag_data)}")
 

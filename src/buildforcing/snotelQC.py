@@ -65,6 +65,7 @@ def qc_maxmin_temperatures(df: pd.DataFrame, outlier_std: float=3.0) -> pd.DataF
     1. Flag outlier values as suspect based on data stats
     2. Flag inconsistent Tmax/Tmin pairs
     3. Flag outlier diurnal temperature ranges based on data stats
+    4. Flag any missing values as bad
 
     Output DataFrame with columns ['Tmax_bad','Tmin_bad']
     '''
@@ -98,6 +99,8 @@ def qc_maxmin_temperatures(df: pd.DataFrame, outlier_std: float=3.0) -> pd.DataF
     df.loc[df['Tmax_Tmin_inconsistent'], ['Tmax_bad', 'Tmin_bad']] = True # Both bad if inconsistent
     df.loc[df['Tmax_outlier'], 'Tmax_bad'] = True
     df.loc[df['Tmin_outlier'], 'Tmin_bad'] = True
+    df.loc[df['Tmax'].isna(), 'Tmax_bad'] = True
+    df.loc[df['Tmin'].isna(), 'Tmin_bad'] = True
 
     # DTR should be larger then 3C
     df.loc[df['DTR'] < 3, ['Tmax_bad', 'Tmin_bad']] = True
