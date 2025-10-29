@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "buildforcing"
-version = "0.8.4"
+version = "0.9.0"
 description = "A utility for creating forcing files in a netCDF format."
 authors = [
     { name = "Chris Cox", email = "christopher.cox@student.nmt.edu" }
