@@ -96,7 +96,7 @@ class SiteBuilder:
         swrad = self.swrad_correction(self.nldas.data['SWdown'])
         lwrad = self.lwrad_correction(self.nldas.data['LWdown'])
         precip_total = self.Rainf_correction(self.nldas.data['Rainf'], self.snotel.data['precip_mm'])
-        precip = self.precip_partition(precip_total['Rainf'], Tair['Tair'])
+        precip = self.precip_partition(precip_total['Rainf'], Tair['Tair'], Qair['Qair'], Psurf['PSurf'])
 
         # Create a string describing precip processing
         precip_processing = f'Correction: {self.Rainf_correction.__name__} Partition: {self.precip_partition.__name__}'

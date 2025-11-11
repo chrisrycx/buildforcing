@@ -4,6 +4,7 @@ Functions used to downscale NLDAS data for use with point modeling.
 import pandas as pd
 import numpy as np
 from buildforcing.snotelQC import fill_T_nldas, qc_maxmin_temperatures
+from buildforcing.metfuncs import calculate_wetbulb, wang2019_snowfrac
 
 def raw_nldas(nldas_data: pd.Series, *args, **kwargs) -> pd.DataFrame:
     '''
@@ -294,6 +295,55 @@ def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
 
     return data[['rain_mm', 'rain_flags', 'snow_mm', 'snow_flags']]
 
+def partitionPrecipV1(precip_mm: pd.Series, Tair_K: pd.Series, Qair: pd.Series, Psurf: pd.Series) -> pd.DataFrame:
+    '''
+    Partition precipitation into rain and snow.
+    V1: use wang2019_snowfrac to determine fraction of snow vs rain.
+    Input indexes must match.
+
+    Output is a DataFrame with columns 'rain_mm', 'rain_flags', 'snow_mm', 'snow_flags'.
+
+    '''
+    # Change to C from K
+    Tair_C = Tair_K - 273.15
+
+    # Check if the input data has the same index
+    if not precip_mm.index.equals(Tair_C.index):
+        raise ValueError("Precipitation and temperature data must have the same index")
+    if not precip_mm.index.equals(Qair.index):
+        raise ValueError("Precipitation and Qair data must have the same index")
+    if not precip_mm.index.equals(Psurf.index):
+        raise ValueError("Precipitation and Psurf data must have the same index")
+    
+    # Calculate wet-bulb temperature
+    Twb_C = calculate_wetbulb(Tair_C.to_numpy(), Qair.to_numpy(), Psurf.to_numpy())
+
+    # Calculate snow fraction using wang2019_snowfrac
+    snow_frac = wang2019_snowfrac(Twb_C)
+
+    # Calculate rain fraction
+    rain_frac = 1 - snow_frac
+
+    # Calculate rain and snow amounts
+    rain_mm = precip_mm * rain_frac
+    snow_mm = precip_mm * snow_frac
+
+    # Round data to the nearest 0.01 mm
+    rain_mm = rain_mm.round(2)
+    snow_mm = snow_mm.round(2)
+
+    # Combine into a DataFrame
+    data = pd.DataFrame({
+        'rain_mm': rain_mm,
+        'snow_mm': snow_mm
+    }, index=precip_mm.index)
+
+    # Add flag columns
+    data['rain_flags'] = 0
+    data['snow_flags'] = 0
+
+    return data[['rain_mm', 'rain_flags', 'snow_mm', 'snow_flags']]
+
 def downscalePressureV0(nldas_Psurf_Pa: pd.Series, Tair_avg_K: pd.Series, snotel_elevation_m: float, nldas_elevation_m: float) -> pd.DataFrame:
     '''
     Downscale pressure following Chen 2024, which appears to use the hydrostatic equation.
@@ -335,6 +385,7 @@ def getDownscaleFunction(variable_name: str, version: int = 0) -> callable:
         },
         'precip_partition': {
             0: partitionPrecipV0,  # Partition precipitation using the V0 method
+            1: partitionPrecipV1,  # Partition precipitation using the V1 method
         },
         'LWdown': {
             0: raw_nldas,  # No downscaling for LWdown, just pass through

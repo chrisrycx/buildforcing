@@ -1,4 +1,5 @@
 Version History:
+Version 0.10.0 - 2025-11-01 - Add new precipitation partitioning method (V1) that uses wetbulb temperature for better accuracy.
 Version 0.9.1 - 2025-10-29 - Fix minor bug and warning
 Version 0.9.0 - 2025-10-29 - Add flagging variables to output
 Version 0.8.4 - 2025-10-18 - Fall back to loading elevation data from file if not in netCDF, also fixed minor bug with downscale functions
