@@ -9,13 +9,13 @@ from zoneinfo import ZoneInfo
 
 buildforcing_version = 'test'  #Specify manually since project toml doesn't change
 
-site_name = 'Taylor Green'
+site_name = 'Virginia Lakes Ridge'
 useValidDates = False  #If true the custom dates below are ignored
-start_date = date(2015, 10, 1)
-end_date = date(2016, 10, 1)
+start_date = date(1990, 10, 1)
+end_date = date(1991, 10, 1)
 
 # Create site builder for the specified site
-build_settings = '00000000'  
+build_settings = '01011010'  
 forcing_builder = SiteBuilder(site_name, settings_str=build_settings)
 
 # Check if date range is valid
