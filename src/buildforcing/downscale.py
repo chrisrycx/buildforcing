@@ -237,7 +237,7 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
     nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
 
     # Handle edge case - If NLDAS has no precip, scaling factor will be infinity, set to zero
-    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf], 0.0)
+    nldas_monthly_df['scaling_factor'] = nldas_monthly_df['scaling_factor'].replace([np.inf, -np.inf, np.nan], 0.0)
 
     # Upscale the scaling factor to hourly data
     # This is done by repeating the monthly scaling factor for each hour in the month
