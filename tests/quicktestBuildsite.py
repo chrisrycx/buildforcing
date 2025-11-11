@@ -10,9 +10,9 @@ from zoneinfo import ZoneInfo
 buildforcing_version = 'test'  #Specify manually since project toml doesn't change
 
 site_name = 'Virginia Lakes Ridge'
-useValidDates = False  #If true the custom dates below are ignored
-start_date = date(1990, 10, 1)
-end_date = date(1991, 10, 1)
+useValidDates = True  #If true the custom dates below are ignored
+start_date = date(2020, 10, 1)
+end_date = date(2021, 9, 30)
 
 # Create site builder for the specified site
 build_settings = '01011010'  
@@ -44,6 +44,11 @@ end_dt = datetime.combine(end_date, time(23,0), tzinfo=snotel_timezone) # Ensure
 # Convert to UTC and remove timezone info for consistency
 start_dt = start_dt.astimezone(timezone.utc).replace(tzinfo=None)
 end_dt = end_dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+# Ensure start date is no earlier than 1990-01-01, this matches what is used in production
+min_start_dt = datetime(1990, 1, 1)
+if start_dt < min_start_dt:
+    start_dt = min_start_dt
 
 # Build the forcing data
 forcings = forcing_builder.build(start_dt, end_dt)

@@ -1,4 +1,5 @@
 Version History:
+Version 0.10.1 - 2025-11-02 - Fixed bug in temperature downscaling where Nans in flags not handled correctly at start/end of time series.
 Version 0.10.0 - 2025-11-01 - Add new precipitation partitioning method (V1) that uses wetbulb temperature for better accuracy.
 Version 0.9.1 - 2025-10-29 - Fix minor bug and warning
 Version 0.9.0 - 2025-10-29 - Add flagging variables to output

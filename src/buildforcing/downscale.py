@@ -164,6 +164,7 @@ def downscaleTairV1(nldas_Tair_K: pd.Series, snotel_Tmax_C: pd.Series, snotel_Tm
     # Generate combined output dataframe
     output_df = pd.merge(nldas_Tair_K['corrected'], T_qc_flags['flags'], how='left', left_index=True, right_index=True)
     output_df = output_df.ffill()
+    output_df = output_df.bfill() # In case start/end have nans
     output_df = output_df.rename(columns={'corrected': 'Tair'})
 
     # Change timezone back to UTC
@@ -265,11 +266,13 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
 
     return nldas_hourly[['downscaled', 'flags']].rename(columns={'downscaled': 'Rainf'})
     
-def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series) -> pd.DataFrame:
+def partitionPrecipV0(precip_mm: pd.Series, Tair_K: pd.Series, Qair: pd.Series, Psurf: pd.Series) -> pd.DataFrame:
     '''
     Partition precipitation into rain and snow.
     V0: Just partition if Tair >= 0 C, else snow.
     Input indexes must match.
+
+    Note: Qair and Psurf are not used in this version, but are included for function signature consistency.
 
     Output is a DataFrame with columns 'rain_mm', 'rain_flags', 'snow_mm', 'snow_flags'.
 
