@@ -233,6 +233,9 @@ def downscalePrecipV1(nldas_hourly_precip_mm: pd.Series, snotel_daily_precip_mm:
         # This will replace nldas values with the regression model values and the scale factor will be set to 1 for upscaling
         nldas_monthly_df.loc[nldas_monthly_df['snotel_nan'] > nan_threshold, 'snotel'] = linear_model(nldas_monthly_df['nldas'][nldas_monthly_df['snotel_nan'] > nan_threshold])
 
+    # In some cases, the regression may produce negative values, set these to zero
+    nldas_monthly_df['snotel'] = nldas_monthly_df['snotel'].clip(lower=0.0)
+    
     # Calculate the scaling factor
     nldas_monthly_df['scaling_factor'] = nldas_monthly_df['snotel'] / nldas_monthly_df['nldas']
 

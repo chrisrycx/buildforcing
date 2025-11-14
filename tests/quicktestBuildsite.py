@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 buildforcing_version = 'test'  #Specify manually since project toml doesn't change
 
-site_name = 'Lynn Lake'
+site_name = 'Beaver Pass'  #Specify site name here
 useValidDates = True  #If true the custom dates below are ignored
 start_date = date(2020, 10, 1)
 end_date = date(2021, 9, 30)
