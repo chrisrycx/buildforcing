@@ -5,7 +5,7 @@ import unittest
 from buildforcing.metfuncs import (
     esat_liq, esat_ice, q_to_e, psychro_const,
     rh_from_q_tair, e_from_wetbulb, calculate_wetbulb,
-    wang2019_snowfrac
+    wang2019_snowfrac, jordan_snowfrac
 )
 
 
@@ -159,6 +159,71 @@ class TestWang2019Snowfrac(unittest.TestCase):
         result = wang2019_snowfrac(Twb_array)
         # Should be monotonically decreasing
         self.assertTrue(result[0] > result[1] > result[2])
+
+
+class TestJordanSnowfrac(unittest.TestCase):
+    def test_temperature_range_minus1_to_5C(self):
+        """Test jordan_snowfrac with temperatures from -1 to 5°C at 0.5°C resolution"""
+        # Create array from -1 to 5°C with 0.5°C resolution
+        T_celsius = np.arange(-1.0, 5.5, 0.5)
+        # Convert to Kelvin
+        T_kelvin = T_celsius + 273.15
+
+        result = jordan_snowfrac(T_kelvin)
+
+        # Verify output is numpy array
+        self.assertIsInstance(result, np.ndarray)
+        self.assertEqual(result.shape, T_kelvin.shape)
+
+        # Expected values based on Jordan 1991 method:
+        # T < 0.5°C: fSnow = 1.0
+        # 0.5°C ≤ T ≤ 2°C: fSnow = -0.2*T + 1 (linear)
+        # 2°C < T < 2.5°C: fSnow = 0.6
+        # 2.5°C: fSnow = -0.2*2.5 + 1 = 0.5 (still in linear region)
+        # T > 2.5°C: fSnow = 0.0
+
+        expected = np.array([
+            1.0,    # -1.0°C: < 0.5, all snow
+            1.0,    # -0.5°C: < 0.5, all snow
+            1.0,    # 0.0°C: < 0.5, all snow
+            0.9,    # 0.5°C: -0.2*0.5 + 1 = 0.9
+            0.8,    # 1.0°C: -0.2*1.0 + 1 = 0.8
+            0.7,    # 1.5°C: -0.2*1.5 + 1 = 0.7
+            0.6,    # 2.0°C: -0.2*2.0 + 1 = 0.6
+            0.5,    # 2.5°C: -0.2*2.5 + 1 = 0.5 (linear formula applies)
+            0.0,    # 3.0°C: > 2.5, no snow
+            0.0,    # 3.5°C: > 2.5, no snow
+            0.0,    # 4.0°C: > 2.5, no snow
+            0.0,    # 4.5°C: > 2.5, no snow
+            0.0,    # 5.0°C: > 2.5, no snow
+        ])
+
+        # Test all values are between 0 and 1
+        self.assertTrue(np.all(result >= 0))
+        self.assertTrue(np.all(result <= 1))
+
+        # Test expected values with small tolerance for floating point
+        np.testing.assert_allclose(result, expected, rtol=1e-10, atol=1e-10)
+
+    def test_boundary_conditions(self):
+        """Test jordan_snowfrac at specific boundary temperatures"""
+        # Test key boundary points
+        T_celsius = np.array([0.5, 2.0, 2.5, 3.0])
+        T_kelvin = T_celsius + 273.15
+
+        result = jordan_snowfrac(T_kelvin)
+
+        # At 0.5°C: start of linear region, fSnow = -0.2*0.5 + 1 = 0.9
+        self.assertAlmostEqual(result[0], 0.9, places=10)
+
+        # At 2.0°C: end of main linear region, fSnow = -0.2*2.0 + 1 = 0.6
+        self.assertAlmostEqual(result[1], 0.6, places=10)
+
+        # At 2.5°C: linear formula still applies, fSnow = -0.2*2.5 + 1 = 0.5
+        self.assertAlmostEqual(result[2], 0.5, places=10)
+
+        # At 3.0°C: T > 2.5, so fSnow = 0
+        self.assertAlmostEqual(result[3], 0.0, places=10)
 
 
 if __name__ == '__main__':

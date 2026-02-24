@@ -88,3 +88,26 @@ def wang2019_snowfrac(Twb: NDArray[np.floating]) -> NDArray[np.floating]:
     c = 3.97
 
     return 1.0 / (1.0 + a * np.exp(b*(Twb + c)))
+
+def jordan_snowfrac(T: NDArray[np.floating]) -> NDArray[np.floating]:
+    '''
+    Partition precip using method of Jordan 1991 as described in Wang 2019
+    Note that NCAR NOAH-MP docs appear to have typo, while Wang makes more sense.
+    Implementation here matches Wang picture.
+    
+    :param T: Air temperature in K
+
+    returns fraction snow
+    '''
+    # Change to degrees C
+    Tc = T - 273.15
+
+    # Calculate linear section first
+    fSnow = -0.2*Tc + 1
+
+    # Set sections outside of linear
+    fSnow[Tc < 0.5] = 1
+    fSnow[(Tc > 2) & (Tc < 2.5)] = 0.6
+    fSnow[Tc > 2.5] = 0
+    
+    return fSnow

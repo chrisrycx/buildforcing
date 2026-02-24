@@ -174,7 +174,6 @@ class TestDownscaleTairV1(unittest.TestCase):
         for i in range(12,16):
             self.assertEqual(flags.iloc[i], 0)  # FLAG_OBSERVED
 
-
 class TestdownscalePrecipV1(unittest.TestCase):
     def setUp(self):
         # Run a test using some actual data
