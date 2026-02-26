@@ -225,6 +225,16 @@ class TestJordanSnowfrac(unittest.TestCase):
         # At 3.0°C: T > 2.5, so fSnow = 0
         self.assertAlmostEqual(result[3], 0.0, places=10)
 
+    def compare_wang_jordan(self):
+        '''
+        Based on the wang 2019 paper, there are some situations
+        where Jordan has a higher fraction than Wang. Verify
+        '''
+        Tc = [0.5,1,1.5,1.5,2.5,4]
+        rh = [100,95,80,70,50,60]
+        wang_higher = [0,0,1,1,1,1]
+
+
 
 if __name__ == '__main__':
     unittest.main()

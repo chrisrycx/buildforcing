@@ -22,6 +22,21 @@ def q_to_e(q: NDArray[np.floating], p: NDArray[np.floating]) -> NDArray[np.float
     # See downloaded list of formulas from "plymouth state"
     return (q * p) / (0.622 + 0.378 * q)
 
+def rh_to_q(rh: NDArray[np.floating], T: NDArray[np.floating], p: NDArray[np.floating]) -> NDArray[np.floating]:
+    '''
+    RH to specific humidity using inverse of q_to_e
+
+    :param rh: Relative humidity (fraction, 0-1)
+    :param T: Air temperature in degC
+    :param p: Pressure in Pa
+    :return: Specific humidity in kg/kg
+    '''
+    e_sat = esat_liq(T)
+    e = rh * e_sat
+
+    q = (0.622 * e) / (p - 0.378 * e)
+    return q
+
 # Psychrometric constant
 def psychro_const(p: NDArray[np.floating]) -> NDArray[np.floating]:
     # p in Pa, gamma in Pa/K
