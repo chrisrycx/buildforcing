@@ -240,7 +240,7 @@ class TestJordanSnowfrac(unittest.TestCase):
         wang_higher = np.array(wang_higher, dtype=bool)
 
         Tk = Tc + 273.15
-        q = rh_to_q(rh,Tc,p)
+        q = rh_to_q(rh/100,Tc,p)
 
         Twb = calculate_wetbulb(Tc,q,p)
         wang_frac = wang2019_snowfrac(Twb)
