@@ -58,6 +58,7 @@ def e_from_wetbulb(Ta: NDArray[np.floating], Twb: NDArray[np.floating], p: NDArr
     # Use np.where to handle both scalars and arrays
     # esat = np.where(Twb < 0, esat_ice(Twb), esat_liq(Twb))
     esat = esat_liq(Twb)
+    #esat = esat_ice(Twb)
     gamma = psychro_const(p)
     return esat - gamma * (Ta - Twb)  # in Pa
 
