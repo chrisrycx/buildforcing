@@ -4,7 +4,7 @@ import unittest
 
 from buildforcing.metfuncs import (
     esat_liq, esat_ice, q_to_e, psychro_const,
-    rh_from_q_tair, e_from_wetbulb, calculate_wetbulb,
+    rh_from_q_tair, e_from_wetbulb, calculate_wetbulb, rh_to_q,
     wang2019_snowfrac, jordan_snowfrac
 )
 
@@ -225,14 +225,37 @@ class TestJordanSnowfrac(unittest.TestCase):
         # At 3.0°C: T > 2.5, so fSnow = 0
         self.assertAlmostEqual(result[3], 0.0, places=10)
 
-    def compare_wang_jordan(self):
+    def test_compare_wang_jordan(self):
         '''
         Based on the wang 2019 paper, there are some situations
         where Jordan has a higher fraction than Wang. Verify
         '''
-        Tc = [0.5,1,1.5,1.5,2.5,4]
-        rh = [100,95,80,70,50,60]
-        wang_higher = [0,0,1,1,1,1]
+        Tc =          [0.5,   1,  1.5,    2,  2.5,  4]
+        rh =          [100,  95,   80,   98,   50, 60]
+        wang_higher = [  0,   0,    1,    0,    1,  1]
+        p = np.array(6*[100000])  #1000 hPa, sea level
+
+        Tc = np.array(Tc)
+        rh = np.array(rh)
+        wang_higher = np.array(wang_higher, dtype=bool)
+
+        Tk = Tc + 273.15
+        q = rh_to_q(rh,Tc,p)
+
+        Twb = calculate_wetbulb(Tc,q,p)
+        wang_frac = wang2019_snowfrac(Twb)
+        jord_frac = jordan_snowfrac(Tk)
+
+        # Print for manual comparison
+        print("\nComparison of Wang and Jordan snow fractions:")
+        print(f"Tc (°C):      {Tc}")
+        print(f"Wang frac:    {wang_frac}")
+        print(f"Jordan frac:  {jord_frac}")
+        print(f"Wang higher:  {wang_higher}")
+        print(f"Difference:   {wang_frac - jord_frac}")
+
+        # Assert that when wang_higher is True, wang_frac > jord_frac
+        self.assertTrue(np.all(wang_frac[wang_higher] > jord_frac[wang_higher]))
 
 
 
