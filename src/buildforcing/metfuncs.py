@@ -56,7 +56,8 @@ def rh_from_q_tair(q: NDArray[np.floating], Tair: NDArray[np.floating], p: NDArr
 def e_from_wetbulb(Ta: NDArray[np.floating], Twb: NDArray[np.floating], p: NDArray[np.floating]) -> NDArray[np.floating]:
     # Twb in degC, p in Pa, e in Pa
     # Use np.where to handle both scalars and arrays
-    esat = np.where(Twb < 0, esat_ice(Twb), esat_liq(Twb))
+    # esat = np.where(Twb < 0, esat_ice(Twb), esat_liq(Twb))
+    esat = esat_liq(Twb)
     gamma = psychro_const(p)
     return esat - gamma * (Ta - Twb)  # in Pa
 
