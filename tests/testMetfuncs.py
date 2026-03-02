@@ -95,6 +95,29 @@ class TestRhFromQTair(unittest.TestCase):
         self.assertTrue(np.all(result >= 0))
         self.assertTrue(np.all(result <= 1.0))
 
+class TestRHfromTwet(unittest.TestCase):
+    '''
+    Calculate RH from wet bulb using psychrometric chart
+    downloaded off internet (www.kathabar.com)...looked legit
+    '''
+    def test_point_values(self):
+        Tf = np.array([25,33,35,37])
+        Twf = np.array([23,31,32,30])
+        p = np.array([101300,101300,101300,101300]) #Pa
+        expected_rh = np.array([76,81,74,45])
+
+        Tc = (Tf - 32)*5/9
+        Twc = (Twf - 32)*5/9
+
+        # Calculate vapor pressure from wetbulb
+        e_vals = e_from_wetbulb(Tc,Twc,p)
+        e_sat = esat_liq(Tc)
+        rh_calculated = (e_vals / e_sat) * 100.0
+
+        # Verify RH is within 3 percentage points
+        np.testing.assert_allclose(rh_calculated, expected_rh, atol=4.0,
+                                   err_msg="RH from wet bulb should match expected values within 3 percentage points")
+
 
 class TestEFromWetbulb(unittest.TestCase):
     def test_array_input_output(self):
