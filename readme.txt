@@ -1,4 +1,5 @@
 Version History:
+Version 0.11.1 - 2026-03-02 - Added more unit testing to wetbulb calcs, changed to just using sat vapor over liquid.
 Version 0.11.0 - 2026-02-24 - Added partition method v2 which is Wang but limited by Jordan
 Version 0.10.3 - 2025-11-04 - Fixed bug in precipitation downscaling where negative values could occur after regression step.
 Version 0.10.2 - 2025-11-02 - Fixed bug in precipitation downscaling where 0 precip lead to Nan values.
