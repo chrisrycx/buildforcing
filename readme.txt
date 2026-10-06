@@ -1,3 +1,21 @@
+## buildforcing
+This repository is used to create model forcing datasets at SNOTEL locations for use with the GFDL LM4 land model.
+To do this NLDAS-2 data is downscaled using various algorithms and/or SNOTEL observations. The resulting xarray
+dataset can then be saved as netCDF file for use in the model.
+
+See tests/quicktestBuildsite.py for example script
+
+### Inputs
+- NetCDF of NLDAS-2 data for each SNOTEL location.
+- SNOTEL data from https://www.pnnl.gov/projects/distributed-hydrology-soil-vegetation-model/data-products
+
+### Submodules
+- buildsite.py - Primary class for building forcing 
+- datasets.py - classes describing NLDAS-2, snotel, and forcing datasets 
+- downscale.py - algorithms used to downscale NLDAS-2 values 
+- metfuncs.py - helper functions for meteorological calculations
+- snotelQC.py - SNOTEL quality control class used during downscaling
+
 Version History:
 Version 0.11.1 - 2026-03-02 - Added more unit testing to wetbulb calcs, changed to just using sat vapor over liquid.
 Version 0.11.0 - 2026-02-24 - Added partition method v2 which is Wang but limited by Jordan
